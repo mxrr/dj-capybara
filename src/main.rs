@@ -26,15 +26,13 @@ impl EventHandler for Handler {
   async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
     if let Interaction::ApplicationCommand(command) = interaction {
       if commands::handle_commands(&ctx, command.clone()).await {
-        info!("{name}#{id} ran command {cmd}", 
-          name = command.user.name, 
-          id = command.user.tag(),
+        info!("{name} ran command {cmd}", 
+          name = command.user.tag(),
           cmd = command.data.name
         )
       } else {
-        error!("{name}#{id} failed running command {cmd}", 
-          name = command.user.name, 
-          id = command.user.tag(),
+        error!("{name} failed running command {cmd}", 
+          name = command.user.tag(),
           cmd = command.data.name
         )
       }

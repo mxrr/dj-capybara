@@ -11,6 +11,7 @@ use serenity::model::interactions::{
 };
 use serenity::prelude::Context;
 use serenity::model::prelude::{Ready, GuildId};
+use songbird::input::Input;
 use tracing::{info, error};
 
 pub mod queue;
@@ -58,8 +59,8 @@ fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicat
         .description("Play a YouTube video or any music/video file")
         .create_option(|option| {
           option
-            .name("url")
-            .description("Link to a YouTube video or a file")
+            .name("search")
+            .description("Search term or a link to a YouTube video or a file")
             .kind(ApplicationCommandOptionType::String)
             .required(true)
         })
@@ -97,46 +98,47 @@ struct VOIPData {
   pub guild_id: GuildId
 }
 
-async fn get_voip_data(ctx: &Context, command: &ApplicationCommandInteraction) -> Result<VOIPData, String> {
-  let guild_from_command = command.guild_id;
-  let guild_id = match guild_from_command {
-    Some(g_id) => g_id,
-    None => {
-      error!("Error getting guild from command");
-      return Err("Error getting guild information".to_string())
-    }
-  };
-
-  let guild_cache = guild_id.to_guild_cached(&ctx.cache).await;
-
-  let channel_id = match guild_cache {
-    Some(guild) => {
-      let ch = guild
-        .voice_states
-        .get(&command.member.as_ref().unwrap().user.id.clone())
-        .and_then(|vs| vs.channel_id);
-      
-      match ch {
-        Some(c) => c,
-        None => {
-          error!("Error getting channel id");
-          return Err("Error getting voice channel".to_string())
-        }
+impl VOIPData {
+  pub async fn from(ctx: &Context, command: &ApplicationCommandInteraction) -> Result<VOIPData, String> {
+    let guild_from_command = command.guild_id;
+    let guild_id = match guild_from_command {
+      Some(g_id) => g_id,
+      None => {
+        error!("Error getting guild from command");
+        return Err("Error getting guild information".to_string())
       }
-    },
-    None => {
-      error!("Error getting guild from cache");
-      return Err("Error getting guild information".to_string())
-    }
-  };
-
-  let data = VOIPData{channel_id, guild_id};
-  Ok(data)
+    };
+  
+    let guild_cache = guild_id.to_guild_cached(&ctx.cache).await;
+  
+    let channel_id = match guild_cache {
+      Some(guild) => {
+        let ch = guild
+          .voice_states
+          .get(&command.member.as_ref().unwrap().user.id.clone())
+          .and_then(|vs| vs.channel_id);
+        
+        match ch {
+          Some(c) => c,
+          None => {
+            error!("Error getting channel id");
+            return Err("Error getting voice channel".to_string())
+          }
+        }
+      },
+      None => {
+        error!("Error getting guild from cache");
+        return Err("Error getting guild information".to_string())
+      }
+    };
+  
+    let data = VOIPData{channel_id, guild_id};
+    Ok(data)
+  }
 }
 
-
 async fn join(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
-  let voip_data = match get_voip_data(ctx, command).await {
+  let voip_data = match VOIPData::from(ctx, command).await {
     Ok(v) => v,
     Err(s) => return s
   };
@@ -162,7 +164,7 @@ async fn join(ctx: &Context, command: &ApplicationCommandInteraction) -> String 
 }
 
 async fn leave(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
-  let voip_data = match get_voip_data(ctx, command).await {
+  let voip_data = match VOIPData::from(ctx, command).await {
     Ok(v) => v,
     Err(s) => return s
   };
@@ -189,8 +191,28 @@ async fn leave(ctx: &Context, command: &ApplicationCommandInteraction) -> String
   }
 }
 
+async fn get_source(param: String) -> Result<Input, String> {
+  if param.contains("https://") {
+    match songbird::ytdl(param).await {
+      Ok(s) => Ok(s),
+      Err(e) => {
+        error!("Error fetching music file: {}", e);
+        Err("Invalid URL".to_string())
+      }
+    }
+  } else {
+    match songbird::input::ytdl_search(param).await {
+      Ok(s) => Ok(s),
+      Err(e) => {
+        error!("Error finding youtube video: {}", e);
+        Err("Nothing found".to_string())
+      }
+    }
+  }
+}
+
 async fn play(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
-  let voip_data_f = get_voip_data(ctx, command);
+  let voip_data_f = VOIPData::from(ctx, command);
 
   let option = match command.data.options.get(0) {
     Some(o) => {
@@ -198,21 +220,21 @@ async fn play(ctx: &Context, command: &ApplicationCommandInteraction) -> String 
         Some(opt_val) => opt_val.clone(),
         None => {
           error!("No options provided");
-          return "No URL in request".to_string()
+          return "No search term or URL in request".to_string()
         }
       }
     },
     None => {
       error!("No options provided");
-      return "No URL in request".to_string()
+      return "No search term or URL in request".to_string()
     }
   };
 
-  let url = if let ApplicationCommandInteractionDataOptionValue::String(s) = option {
+  let param = if let ApplicationCommandInteractionDataOptionValue::String(s) = option {
     s
   } else {
     error!("Empty URL provided");
-    return "No URL in request".to_string()
+    return "No search term or URL in request".to_string()
   };
 
   let voip_data = match voip_data_f.await {
@@ -245,22 +267,9 @@ async fn play(ctx: &Context, command: &ApplicationCommandInteraction) -> String 
     }
   };
 
-  let source = if url.contains("https://") {
-    match songbird::ytdl(url).await {
-      Ok(s) => s,
-      Err(e) => {
-        error!("Error fetching music file: {}", e);
-        return "Invalid URL".to_string()
-      }
-    }
-  } else {
-    match songbird::input::ytdl_search(url).await {
-      Ok(s) => s,
-      Err(e) => {
-        error!("Error finding youtube video: {}", e);
-        return "Nothing found".to_string()
-      }
-    }
+  let source = match get_source(param).await {
+    Ok(s) => s,
+    Err(s) => return s,
   };
 
   let title = source
