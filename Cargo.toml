@@ -10,3 +10,5 @@ serenity = { version = "0.10.9", default-features = false, features = ["client",
 songbird = "0.2.0"
 dotenv = "0.15.0"
 tokio = { version = "1.14.0", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1.29"
+tracing-subscriber = "0.3.2"

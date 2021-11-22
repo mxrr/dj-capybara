@@ -7,9 +7,11 @@ use serenity::model::{
   prelude::*,
   gateway::Activity
 };
+use tracing::{info, error};
 
 mod config;
 mod constants;
+mod commands;
 
 
 struct Handler;
@@ -19,12 +21,13 @@ impl EventHandler for Handler {
   async fn ready(&self, ctx: Context, ready: Ready) {
     let activity = Activity::listening("test");
     ctx.set_activity(activity).await;
-    println!("{}#{} running", ready.user.name, ready.user.discriminator);
+    info!("{}#{} running", ready.user.name, ready.user.discriminator);
   }
 }
 
 #[tokio::main]
 async fn main() {
+  tracing_subscriber::fmt::init();
   let config = config::read_config();
 
   let mut client = Client::builder(config.token)
@@ -38,6 +41,6 @@ async fn main() {
     .expect("Error creating client");
   
   if let Err(e) = client.start().await {
-    println!("Client error: {:?}", e);
+    error!("Client error: {:?}", e);
   }
 }
