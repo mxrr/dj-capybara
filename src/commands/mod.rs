@@ -1,4 +1,5 @@
 use crate::config::{ConfigStorage};
+use serenity::builder::CreateApplicationCommands;
 use serenity::model::id::ChannelId;
 use serenity::model::interactions::{
   InteractionResponseType,
@@ -13,7 +14,7 @@ use serenity::model::prelude::{Ready, GuildId};
 use tracing::{info, error};
 
 
-pub async fn register_commands(ctx: &Context, ready: &Ready) {
+pub async fn register_commands(ctx: &Context, _ready: &Ready) {
   let config_lock = {
     let data = ctx.data.read().await;
     data.get::<ConfigStorage>()
@@ -22,28 +23,9 @@ pub async fn register_commands(ctx: &Context, ready: &Ready) {
   };
 
   if let Some(guild) = config_lock.guild_id {
-    let commands = guild.set_application_commands(&ctx.http, |commands| {
-      commands
-        .create_application_command(|command| {
-          command.name("join").description("Join current voice channel")
-        })
-        .create_application_command(|command| {
-          command.name("leave").description("Leave voice channel")
-        })
-        .create_application_command(|command| {
-          command
-            .name("play")
-            .description("Play a YouTube video or any music/video file")
-            .create_option(|option| {
-              option
-                .name("url")
-                .description("Link to a YouTube video or a file")
-                .kind(ApplicationCommandOptionType::String)
-                .required(true)
-            })
-        })
-    })
-    .await;
+    let commands = guild
+      .set_application_commands(&ctx.http, command_list)
+      .await;
 
     match commands {
       Ok(c) => info!("Added commands for Guild({}): {:#?}", guild, c),
@@ -56,7 +38,29 @@ pub async fn register_commands(ctx: &Context, ready: &Ready) {
   }
 }
 
-pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) {
+fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicationCommands {
+  commands
+    .create_application_command(|command| {
+      command.name("join").description("Join current voice channel")
+    })
+    .create_application_command(|command| {
+      command.name("leave").description("Leave voice channel")
+    })
+    .create_application_command(|command| {
+      command
+        .name("play")
+        .description("Play a YouTube video or any music/video file")
+        .create_option(|option| {
+          option
+            .name("url")
+            .description("Link to a YouTube video or a file")
+            .kind(ApplicationCommandOptionType::String)
+            .required(true)
+        })
+    })
+}
+
+pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) -> bool {
   let content = match command.data.name.as_str() {
     "join" => join(ctx, &command).await,
     "leave" => leave(ctx, &command).await,
@@ -72,7 +76,12 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
     })
     .await
     {
-      error!("Couldn't respond to command: {}", e)
+      error!("Couldn't respond to command: {}", e);
+      false
+    }
+    else 
+    {
+      true
     }
 }
 
@@ -261,7 +270,7 @@ async fn play(ctx: &Context, command: &ApplicationCommandInteraction) -> String 
     .unwrap_or("Missing artist".to_string());
 
   let mut handler_lock = handler.lock().await;
-  let _handle = handler_lock.play_source(source);
+  let _handle = handler_lock.play_only_source(source);
 
   format!("Playing \"{}\" - {}", title, artist)
 }

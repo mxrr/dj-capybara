@@ -23,13 +23,25 @@ impl EventHandler for Handler {
 
   async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
     if let Interaction::ApplicationCommand(command) = interaction {
-      commands::handle_commands(&ctx, command).await;
+      if commands::handle_commands(&ctx, command.clone()).await {
+        info!("{name}#{id} ran command {cmd}", 
+          name = command.user.name, 
+          id = command.user.tag(),
+          cmd = command.data.name
+        )
+      } else {
+        error!("{name}#{id} failed running command {cmd}", 
+          name = command.user.name, 
+          id = command.user.tag(),
+          cmd = command.data.name
+        )
+      }
     }
   }
 
 
   async fn ready(&self, ctx: Context, ready: Ready) {
-    let activity = Activity::listening("test");
+    let activity = Activity::playing("with 🍊");
     ctx.set_activity(activity).await;
 
     commands::register_commands(&ctx, &ready).await;
