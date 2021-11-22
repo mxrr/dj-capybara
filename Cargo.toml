@@ -1,0 +1,12 @@
+[package]
+name = "dj-capybara"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serenity = { version = "0.10.9", default-features = false, features = ["client", "cache", "gateway", "rustls_backend", "model", "voice"] }
+songbird = "0.2.0"
+dotenv = "0.15.0"
+tokio = { version = "1.14.0", features = ["macros", "rt-multi-thread"] }
