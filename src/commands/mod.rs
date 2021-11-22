@@ -2,11 +2,16 @@ use crate::config::{ConfigStorage};
 use serenity::model::id::ChannelId;
 use serenity::model::interactions::{
   InteractionResponseType,
-  application_command::ApplicationCommandInteraction
+  application_command::{
+    ApplicationCommandInteraction, 
+    ApplicationCommandOptionType,
+    ApplicationCommandInteractionDataOptionValue
+  }
 };
 use serenity::prelude::Context;
 use serenity::model::prelude::{Ready, GuildId};
 use tracing::{info, error};
+
 
 pub async fn register_commands(ctx: &Context, ready: &Ready) {
   let config_lock = {
@@ -24,6 +29,18 @@ pub async fn register_commands(ctx: &Context, ready: &Ready) {
         })
         .create_application_command(|command| {
           command.name("leave").description("Leave voice channel")
+        })
+        .create_application_command(|command| {
+          command
+            .name("play")
+            .description("Play a YouTube video or any music/video file")
+            .create_option(|option| {
+              option
+                .name("url")
+                .description("Link to a YouTube video or a file")
+                .kind(ApplicationCommandOptionType::String)
+                .required(true)
+            })
         })
     })
     .await;
@@ -43,6 +60,7 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
   let content = match command.data.name.as_str() {
     "join" => join(ctx, &command).await,
     "leave" => leave(ctx, &command).await,
+    "play" => play(ctx, &command).await,
     _ => "Invalid command".to_string()
   };
 
@@ -154,4 +172,96 @@ async fn leave(ctx: &Context, command: &ApplicationCommandInteraction) -> String
   } else {
     "Not in a voice channel".to_string()
   }
+}
+
+async fn play(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
+  let voip_data_f = get_voip_data(ctx, command);
+
+  let option = match command.data.options.get(0) {
+    Some(o) => {
+      match o.resolved.as_ref() {
+        Some(opt_val) => opt_val.clone(),
+        None => {
+          error!("No options provided");
+          return "No URL in request".to_string()
+        }
+      }
+    },
+    None => {
+      error!("No options provided");
+      return "No URL in request".to_string()
+    }
+  };
+
+  let url = if let ApplicationCommandInteractionDataOptionValue::String(s) = option {
+    s
+  } else {
+    error!("Empty URL provided");
+    return "No URL in request".to_string()
+  };
+
+  let voip_data = match voip_data_f.await {
+    Ok(v) => v,
+    Err(s) => return s
+  };
+
+  let guild_id = voip_data.guild_id;
+  let channel_id = voip_data.channel_id;
+
+  let manager = match songbird::get(ctx).await {
+    Some(arc) => arc.clone(),
+    None => {
+      error!("Error with songbird client");
+      return "Error getting voice client".to_string()
+    }
+  };
+
+  let handler = match manager.get(guild_id) {
+    Some(h) => h,
+    None => {
+      let join = manager.join(guild_id, channel_id).await;
+      match join.1 {
+        Ok(_) => join.0,
+        Err(e) => {
+          error!("Error joining voice channel: {}", e);
+          return "Not in a voice channel".to_string()
+        }
+      }
+    }
+  };
+
+  let source = if url.contains("https://") {
+    match songbird::ytdl(url).await {
+      Ok(s) => s,
+      Err(e) => {
+        error!("Error fetching music file: {}", e);
+        return "Invalid URL".to_string()
+      }
+    }
+  } else {
+    match songbird::input::ytdl_search(url).await {
+      Ok(s) => s,
+      Err(e) => {
+        error!("Error finding youtube video: {}", e);
+        return "Nothing found".to_string()
+      }
+    }
+  };
+
+  let title = source
+    .metadata
+    .title
+    .clone()
+    .unwrap_or("Missing title".to_string());
+
+  let artist = source
+    .metadata
+    .artist
+    .clone()
+    .unwrap_or("Missing artist".to_string());
+
+  let mut handler_lock = handler.lock().await;
+  let _handle = handler_lock.play_source(source);
+
+  format!("Playing \"{}\" - {}", title, artist)
 }
