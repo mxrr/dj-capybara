@@ -10,6 +10,8 @@ use serenity::model::{
 use songbird::SerenityInit;
 use tracing::{info, error};
 use std::sync::Arc;
+use tokio::sync::Mutex;
+use std::collections::HashMap;
 
 mod config;
 mod constants;
@@ -68,8 +70,13 @@ async fn main() {
     .expect("Error creating client");
 
   {
+    use config::ConfigStorage;
+    use commands::queue::{Queue, GuildQueue};
     let mut data = client.data.write().await;
-    data.insert::<config::ConfigStorage>(Arc::new(config))
+    data.insert::<ConfigStorage>(Arc::new(config));
+
+    let queue = HashMap::<GuildId, GuildQueue>::new();
+    data.insert::<Queue>(Arc::new(Mutex::new(queue)));
   }
   
   if let Err(e) = client.start().await {

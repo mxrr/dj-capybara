@@ -13,6 +13,8 @@ use serenity::prelude::Context;
 use serenity::model::prelude::{Ready, GuildId};
 use tracing::{info, error};
 
+pub mod queue;
+
 
 pub async fn register_commands(ctx: &Context, _ready: &Ready) {
   let config_lock = {
@@ -41,10 +43,14 @@ pub async fn register_commands(ctx: &Context, _ready: &Ready) {
 fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicationCommands {
   commands
     .create_application_command(|command| {
-      command.name("join").description("Join current voice channel")
+      command
+        .name("join")
+        .description("Join current voice channel")
     })
     .create_application_command(|command| {
-      command.name("leave").description("Leave voice channel")
+      command
+        .name("leave")
+        .description("Leave voice channel")
     })
     .create_application_command(|command| {
       command
