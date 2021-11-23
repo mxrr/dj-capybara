@@ -1,12 +1,10 @@
 use crate::config::{ConfigStorage};
-use serenity::builder::CreateApplicationCommands;
+use serenity::builder::{CreateApplicationCommands, CreateApplicationCommand};
 use serenity::model::id::ChannelId;
 use serenity::model::interactions::{
   InteractionResponseType,
   application_command::{
-    ApplicationCommandInteraction, 
-    ApplicationCommandOptionType,
-    ApplicationCommandInteractionDataOptionValue
+    ApplicationCommandInteraction,
   }
 };
 use serenity::prelude::Context;
@@ -17,15 +15,13 @@ use serenity::async_trait;
 
 pub mod queue;
 
-
-const CAPYBARA_GIFS: [&str; 1] = [
-  "https://tenor.com/view/capybara-bucket-sit-spa-capybara-bucket-gif-23305453"
-];
+mod cmd;
 
 
 #[async_trait]
 trait Command {
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction);
+  async fn execute(ctx: &Context, command: &ApplicationCommandInteraction) -> String;
+  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand;
 }
 
 pub async fn register_commands(ctx: &Context, _ready: &Ready) {
@@ -54,41 +50,18 @@ pub async fn register_commands(ctx: &Context, _ready: &Ready) {
 
 fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicationCommands {
   commands
-    .create_application_command(|command| {
-      command
-        .name("join")
-        .description("Join current voice channel")
-    })
-    .create_application_command(|command| {
-      command
-        .name("leave")
-        .description("Leave voice channel")
-    })
-    .create_application_command(|command| {
-      command
-        .name("play")
-        .description("Play a YouTube video or any music/video file")
-        .create_option(|option| {
-          option
-            .name("search")
-            .description("Search term or a link to a YouTube video or a file")
-            .kind(ApplicationCommandOptionType::String)
-            .required(true)
-        })
-    })
-    .create_application_command(|command| {
-      command
-        .name("capybara")
-        .description("Post a random capybara gif")
-    })
+    .create_application_command(cmd::Join::info)
+    .create_application_command(cmd::Leave::info)
+    .create_application_command(cmd::Play::info)
+    .create_application_command(cmd::Capybara::info)
 }
 
 pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) -> bool {
   let content = match command.data.name.as_str() {
-    "join" => join(ctx, &command).await,
-    "leave" => leave(ctx, &command).await,
-    "play" => play(ctx, &command).await,
-    "capybara" => capybara(ctx, &command).await,
+    "join" => cmd::Join::execute(ctx, &command).await,
+    "leave" => cmd::Leave::execute(ctx, &command).await,
+    "play" => cmd::Play::execute(ctx, &command).await,
+    "capybara" => cmd::Capybara::execute(ctx, &command).await,
     _ => "Invalid command".to_string()
   };
 
@@ -110,12 +83,7 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
 }
 
 
-async fn capybara(_ctx: &Context, _command: &ApplicationCommandInteraction) -> String {
-  format!("{}", CAPYBARA_GIFS[0])
-}
-
-
-struct VOIPData {
+pub struct VOIPData {
   pub channel_id: ChannelId,
   pub guild_id: GuildId
 }
@@ -159,61 +127,8 @@ impl VOIPData {
   }
 }
 
-async fn join(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
-  let voip_data = match VOIPData::from(ctx, command).await {
-    Ok(v) => v,
-    Err(s) => return s
-  };
 
-  let guild_id = voip_data.guild_id;
-  let channel_id = voip_data.channel_id;
-
-  let manager = match songbird::get(ctx).await {
-    Some(arc) => arc.clone(),
-    None => {
-      error!("Error with songbird client");
-      return "Error getting voice client".to_string()
-    }
-  };
-
-  let _handler = manager.join(guild_id, channel_id).await;
-
-  if let Some(channel_name) = channel_id.name(&ctx.cache).await {
-    format!("Joined channel {}", channel_name)
-  } else {
-    "Joined channel".to_string()
-  }
-}
-
-async fn leave(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
-  let voip_data = match VOIPData::from(ctx, command).await {
-    Ok(v) => v,
-    Err(s) => return s
-  };
-
-  let manager = match songbird::get(ctx).await {
-    Some(arc) => arc.clone(),
-    None => {
-      error!("Error with songbird client");
-      return "Error getting voice client".to_string()
-    }
-  };
-
-  let guild_id = voip_data.guild_id;
-
-  if manager.get(guild_id).is_some() {
-    if let Err(e) = manager.remove(guild_id).await {
-      error!("Error leaving voice channel: {}", e);
-      return "Error leaving channel".to_string()
-    } else {
-      return "Left channel".to_string()
-    }
-  } else {
-    "Not in a voice channel".to_string()
-  }
-}
-
-async fn get_source(param: String) -> Result<Input, String> {
+pub async fn get_source(param: String) -> Result<Input, String> {
   if param.contains("https://") {
     match songbird::ytdl(param).await {
       Ok(s) => Ok(s),
@@ -233,81 +148,3 @@ async fn get_source(param: String) -> Result<Input, String> {
   }
 }
 
-async fn play(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
-  let voip_data_f = VOIPData::from(ctx, command);
-
-  let option = match command.data.options.get(0) {
-    Some(o) => {
-      match o.resolved.as_ref() {
-        Some(opt_val) => opt_val.clone(),
-        None => {
-          error!("No options provided");
-          return "No search term or URL in request".to_string()
-        }
-      }
-    },
-    None => {
-      error!("No options provided");
-      return "No search term or URL in request".to_string()
-    }
-  };
-
-  let param = if let ApplicationCommandInteractionDataOptionValue::String(s) = option {
-    s
-  } else {
-    error!("Empty URL provided");
-    return "No search term or URL in request".to_string()
-  };
-
-  let voip_data = match voip_data_f.await {
-    Ok(v) => v,
-    Err(s) => return s
-  };
-
-  let guild_id = voip_data.guild_id;
-  let channel_id = voip_data.channel_id;
-
-  let manager = match songbird::get(ctx).await {
-    Some(arc) => arc.clone(),
-    None => {
-      error!("Error with songbird client");
-      return "Error getting voice client".to_string()
-    }
-  };
-
-  let handler = match manager.get(guild_id) {
-    Some(h) => h,
-    None => {
-      let join = manager.join(guild_id, channel_id).await;
-      match join.1 {
-        Ok(_) => join.0,
-        Err(e) => {
-          error!("Error joining voice channel: {}", e);
-          return "Not in a voice channel".to_string()
-        }
-      }
-    }
-  };
-
-  let source = match get_source(param).await {
-    Ok(s) => s,
-    Err(s) => return s,
-  };
-
-  let title = source
-    .metadata
-    .title
-    .clone()
-    .unwrap_or("Missing title".to_string());
-
-  let artist = source
-    .metadata
-    .artist
-    .clone()
-    .unwrap_or("Missing artist".to_string());
-
-  let mut handler_lock = handler.lock().await;
-  let _handle = handler_lock.play_only_source(source);
-
-  format!("Playing \"{}\" - {}", title, artist)
-}

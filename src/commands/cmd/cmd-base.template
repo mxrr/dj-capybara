@@ -1,0 +1,21 @@
+use crate::commands::{Command, VOIPData};
+use serenity::async_trait;
+use serenity::client::Context;
+use serenity::builder::CreateApplicationCommand;
+use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use tracing::{info, error};
+
+pub struct Cmd;
+
+#[async_trait]
+impl Command for Cmd {
+
+  async fn execute(ctx: &Context, command: &ApplicationCommandInteraction) -> String {
+
+  }
+
+  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
+
+  }
+
+}
