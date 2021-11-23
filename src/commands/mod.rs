@@ -112,7 +112,7 @@ impl VOIPData {
           Some(c) => c,
           None => {
             error!("Error getting channel id");
-            return Err("Error getting voice channel".to_string())
+            return Err("Join a voice channel first".to_string())
           }
         }
       },
@@ -138,11 +138,11 @@ pub async fn get_source(param: String) -> Result<Input, String> {
       }
     }
   } else {
-    match songbird::input::ytdl_search(param).await {
+    match songbird::input::ytdl_search(param.clone()).await {
       Ok(s) => Ok(s),
       Err(e) => {
         error!("Error finding youtube video: {}", e);
-        Err("Nothing found".to_string())
+        Err(format!("Nothing found with \"{}\"", param))
       }
     }
   }
