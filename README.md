@@ -1,2 +1,2 @@
 # DJ Capybara
-![capybara-bucket.gif](capybara)
+![capybara](capybara-bucket.gif)
