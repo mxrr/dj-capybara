@@ -27,12 +27,12 @@ impl Command for Join {
       }
     };
   
-    let _handler = manager.join(guild_id, channel_id).await;
+    let handler = manager.join(guild_id, channel_id).await;
   
-    if let Some(channel_name) = channel_id.name(&ctx.cache).await {
+    if let (Some(channel_name), _b) = (channel_id.name(&ctx.cache).await, handler.1.is_ok()) {
       format!("Joined channel {}", channel_name)
     } else {
-      "Joined channel".to_string()
+      "Couldn't join channel".to_string()
     }
   }
 
