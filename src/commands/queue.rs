@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 use serenity::{model::{id::GuildId}, prelude::TypeMapKey};
-use songbird::input::Input;
+use songbird::{input::Input, tracks::TrackHandle};
 
 
 pub struct Queue;
@@ -13,6 +13,7 @@ impl TypeMapKey for Queue {
 
 pub struct GuildQueue {
   pub guild_id: GuildId,
+  pub current_song: TrackHandle,
   pub queue: Vec<Input>,
   pub queue_duration: Duration,
 }
@@ -24,7 +25,11 @@ impl GuildQueue {
       .queue
       .iter()
       .fold(
-        Duration::from_secs(0), 
+        self
+          .current_song
+          .metadata()
+          .duration
+          .unwrap_or(Duration::from_secs(0)), 
         |c, n| {
           c + n.metadata.duration.unwrap_or(Duration::from_secs(0))
         });
