@@ -26,6 +26,15 @@ pub struct Play;
 impl Command for Play {
 
   async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
+    command.create_interaction_response(&ctx.http, |response| {
+      response
+        .kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        .interaction_response_data(|message| {
+          message.content("Loading song".to_string())
+        })
+    });
+
+
     let option = match command.data.options.get(0) {
       Some(o) => {
         match o.resolved.as_ref() {
