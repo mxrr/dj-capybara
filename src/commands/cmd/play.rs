@@ -6,7 +6,7 @@ use crate::commands::{
     get_source,
   },
 };
-use serenity::async_trait;
+use serenity::{async_trait, model::interactions::InteractionResponseType};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
 use serenity::model::interactions::application_command::{
@@ -16,6 +16,9 @@ use serenity::model::interactions::application_command::{
 };
 use tracing::{error};
 use serenity::Error;
+use std::time::Duration;
+use serenity::utils::Colour;
+use serenity::model::interactions::message_component::ButtonStyle;
 
 pub struct Play;
 
@@ -87,16 +90,57 @@ impl Command for Play {
       .clone()
       .unwrap_or("Missing title".to_string());
   
-    let artist = source
+    let length = source
       .metadata
-      .artist
+      .duration
       .clone()
-      .unwrap_or("Missing artist".to_string());
+      .unwrap_or(Duration::from_secs(0));
+
+    let thumbnail = source
+      .metadata
+      .thumbnail
+      .clone()
+      .unwrap_or("https://mxrr.dev/files/christmas.gif".to_string());
+
+    let url = source
+      .metadata
+      .source_url
+      .clone()
+      .unwrap_or("".to_string());
   
     let mut handler_lock = handler.lock().await;
     let _handle = handler_lock.play_only_source(source);
   
-    text_response(ctx, command, format!("Playing \"{}\" - {}", title, artist)).await
+    command
+      .create_interaction_response(&ctx.http, |response| {
+        response
+          .kind(InteractionResponseType::ChannelMessageWithSource)
+          .interaction_response_data(|message| {
+            message
+              .create_embed(|embed| {
+                embed
+                  .image(thumbnail)
+                  .colour(Colour::from_rgb(232, 12, 116))
+                  .fields(vec![
+                    ("Track", title, true),
+                    ("Length", format!("{:?}", length), true),
+                    ("Requester", command.user.tag(), true)
+                  ])
+              })
+              .components(|components| {
+                components
+                  .create_action_row(|row| {
+                    row
+                      .create_button(|button| {
+                        button
+                          .style(ButtonStyle::Link)
+                          .label("Open in browser")
+                          .url(url)
+                      })
+                  })
+              })
+          })
+      }).await
   }
 
   fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
