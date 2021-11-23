@@ -1,5 +1,8 @@
 use crate::config::{ConfigStorage};
-use serenity::builder::{CreateApplicationCommands, CreateApplicationCommand};
+use serenity::builder::{
+  CreateApplicationCommand, 
+  CreateApplicationCommands
+};
 use serenity::model::interactions::{
   InteractionResponseType,
   application_command::{
@@ -10,6 +13,7 @@ use serenity::prelude::Context;
 use serenity::model::prelude::Ready;
 use tracing::{info, error};
 use serenity::async_trait;
+use serenity::Error;
 
 pub mod queue;
 
@@ -19,7 +23,7 @@ mod playback;
 
 #[async_trait]
 trait Command {
-  async fn execute(ctx: &Context, command: &ApplicationCommandInteraction) -> String;
+  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error>;
   fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand;
 }
 
@@ -56,34 +60,39 @@ fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicat
 }
 
 pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) {
-  let content = match command.data.name.as_str() {
-    "join" => cmd::Join::execute(ctx, &command).await,
-    "leave" => cmd::Leave::execute(ctx, &command).await,
-    "play" => cmd::Play::execute(ctx, &command).await,
-    "capybara" => cmd::Capybara::execute(ctx, &command).await,
-    _ => "Invalid command".to_string()
+  let name = command.data.name.clone();
+  let user = command.user.clone();
+  let result = match name.as_str(){
+    "join" => cmd::Join::execute(ctx, command),
+    "leave" => cmd::Leave::execute(ctx, command),
+    "play" => cmd::Play::execute(ctx, command),
+    "capybara" => cmd::Capybara::execute(ctx, command),
+    _ => Box::pin(text_response(ctx, command, format!("Invalid command")))
   };
 
-  if let Err(e) = command
+  if let Err(e) = result.await {
+    error!("Couldn't respond to command: {}", e);
+    error!("{user} failed running command {cmd}", 
+      user = user.tag(),
+      cmd = name
+    )
+  } else {
+    info!("{user} ran command {cmd}", 
+      user = user.tag(),
+      cmd = name
+    )
+  }
+}
+
+
+pub async fn text_response(ctx: &Context, command: ApplicationCommandInteraction, text: String) -> Result<(), Error> {
+  command
     .create_interaction_response(&ctx.http, |response| {
       response
         .kind(InteractionResponseType::ChannelMessageWithSource)
-        .interaction_response_data(|message| message.content(content))
-    })
-    .await
-    {
-      error!("Couldn't respond to command: {}", e);
-      error!("{name} failed running command {cmd}", 
-        name = command.user.tag(),
-        cmd = command.data.name
-      )
-    }
-    else 
-    {
-      info!("{name} ran command {cmd}", 
-        name = command.user.tag(),
-        cmd = command.data.name
-      )
-    }
+        .interaction_response_data(|message| {
+          message.content(text)
+        })
+    }).await
 }
 
