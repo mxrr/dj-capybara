@@ -1,4 +1,10 @@
-use crate::commands::{Command, VOIPData, get_source};
+use crate::commands::{
+  Command, 
+  playback::{
+    VOIPData, 
+    get_source,
+  },
+};
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
