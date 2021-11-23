@@ -14,7 +14,7 @@ use serenity::model::interactions::application_command::{
   ApplicationCommandInteractionDataOptionValue,
   ApplicationCommandOptionType,
 };
-use tracing::{error};
+use tracing::{info, error};
 use serenity::Error;
 use std::time::Duration;
 use serenity::utils::Colour;
@@ -26,13 +26,16 @@ pub struct Play;
 impl Command for Play {
 
   async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    command.create_interaction_response(&ctx.http, |response| {
+    match command.create_interaction_response(&ctx.http, |response| {
       response
         .kind(InteractionResponseType::DeferredChannelMessageWithSource)
         .interaction_response_data(|message| {
           message.content("Loading song".to_string())
         })
-    });
+    }).await {
+      Ok(_) => info!("Play command deferred"),
+      Err(e) => error!("Error deferring play: {}", e),
+    }
 
 
     let option = match command.data.options.get(0) {
@@ -120,36 +123,35 @@ impl Command for Play {
     let mut handler_lock = handler.lock().await;
     let _handle = handler_lock.play_only_source(source);
   
-    command
-      .create_interaction_response(&ctx.http, |response| {
+    match command
+      .edit_original_interaction_response(&ctx.http, |response| {
         response
-          .kind(InteractionResponseType::ChannelMessageWithSource)
-          .interaction_response_data(|message| {
-            message
-              .create_embed(|embed| {
-                embed
-                  .image(thumbnail)
-                  .colour(Colour::from_rgb(232, 12, 116))
-                  .fields(vec![
-                    ("Track", title, true),
-                    ("Length", format!("{:?}", length), true),
-                    ("Requester", command.user.tag(), true)
-                  ])
-              })
-              .components(|components| {
-                components
-                  .create_action_row(|row| {
-                    row
-                      .create_button(|button| {
-                        button
-                          .style(ButtonStyle::Link)
-                          .label("Open in browser")
-                          .url(url)
-                      })
+          .create_embed(|embed| {
+            embed
+              .image(thumbnail)
+              .colour(Colour::from_rgb(232, 12, 116))
+              .fields(vec![
+                ("Track", title, true),
+                ("Length", format_duration(length), true),
+                ("Requester", command.user.tag(), true)
+              ])
+          })
+          .components(|components| {
+            components
+              .create_action_row(|row| {
+                row
+                  .create_button(|button| {
+                    button
+                      .style(ButtonStyle::Link)
+                      .label("Open in browser")
+                      .url(url)
                   })
               })
           })
-      }).await
+      }).await {
+        Ok(m) => return Ok(()),
+        Err(e) => return Err(e)
+      }
   }
 
   fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
@@ -165,4 +167,16 @@ impl Command for Play {
       })
   }
 
+}
+
+fn format_duration(d: Duration) -> String {
+  let s = d.as_secs() % 60;
+  let m = (d.as_secs() / 60) % 60;
+  let h = (d.as_secs() / 60) / 60;
+
+  format!("{}{}{}",
+    if h > 0 { format!("{}h ", h) } else { "".to_string() },
+    if m > 0 { format!("{}m ", m) } else { "".to_string() },
+    if s > 0 { format!("{}s", s) } else if h > 0 || m > 0 { "".to_string() } else { "n/a".to_string() },
+  )
 }
