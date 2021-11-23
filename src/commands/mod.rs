@@ -13,9 +13,20 @@ use serenity::prelude::Context;
 use serenity::model::prelude::{Ready, GuildId};
 use songbird::input::Input;
 use tracing::{info, error};
+use serenity::async_trait;
 
 pub mod queue;
 
+
+const CAPYBARA_GIFS: [&str; 1] = [
+  "https://tenor.com/view/capybara-bucket-sit-spa-capybara-bucket-gif-23305453"
+];
+
+
+#[async_trait]
+trait Command {
+  async fn execute(ctx: &Context, command: ApplicationCommandInteraction);
+}
 
 pub async fn register_commands(ctx: &Context, _ready: &Ready) {
   let config_lock = {
@@ -65,6 +76,11 @@ fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicat
             .required(true)
         })
     })
+    .create_application_command(|command| {
+      command
+        .name("capybara")
+        .description("Post a random capybara gif")
+    })
 }
 
 pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) -> bool {
@@ -72,6 +88,7 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
     "join" => join(ctx, &command).await,
     "leave" => leave(ctx, &command).await,
     "play" => play(ctx, &command).await,
+    "capybara" => capybara(ctx, &command).await,
     _ => "Invalid command".to_string()
   };
 
@@ -90,6 +107,11 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
     {
       true
     }
+}
+
+
+async fn capybara(_ctx: &Context, _command: &ApplicationCommandInteraction) -> String {
+  format!("{}", CAPYBARA_GIFS[0])
 }
 
 
