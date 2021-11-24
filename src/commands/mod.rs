@@ -62,6 +62,16 @@ fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicat
 pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) {
   let name = command.data.name.clone();
   let user = command.user.clone();
+  match command.create_interaction_response(&ctx.http, |response| {
+    response
+      .kind(InteractionResponseType::DeferredChannelMessageWithSource)
+      .interaction_response_data(|message| {
+        message.content("Loading song".to_string())
+      })
+  }).await {
+    Ok(_) => info!("{} command deferred", name),
+    Err(e) => error!("Error deferring command {}: {}",name , e),
+  }
   let result = match name.as_str(){
     "join" => cmd::Join::execute(ctx, command),
     "leave" => cmd::Leave::execute(ctx, command),
@@ -86,13 +96,14 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
 
 
 pub async fn text_response(ctx: &Context, command: ApplicationCommandInteraction, text: String) -> Result<(), Error> {
-  command
-    .create_interaction_response(&ctx.http, |response| {
+  match command
+    .edit_original_interaction_response(&ctx.http, |response| {
       response
-        .kind(InteractionResponseType::ChannelMessageWithSource)
-        .interaction_response_data(|message| {
-          message.content(text)
-        })
+        .content(text)
     }).await
+    {
+      Ok(_) => Ok(()),
+      Err(e) => Err(e),
+    }
 }
 

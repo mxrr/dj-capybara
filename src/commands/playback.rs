@@ -2,7 +2,7 @@ use serenity::client::Context;
 use serenity::model::id::ChannelId;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use serenity::model::prelude::GuildId;
-use songbird::input::Input;
+use songbird::input::{Restartable, Input};
 use tracing::{error};
 
 pub struct VOIPData {
@@ -52,16 +52,16 @@ impl VOIPData {
 
 pub async fn get_source(param: String) -> Result<Input, String> {
   if param.contains("https://") {
-    match songbird::ytdl(param).await {
-      Ok(s) => Ok(s),
+    match Restartable::ytdl(param, true).await {
+      Ok(s) => Ok(s.into()),
       Err(e) => {
         error!("Error fetching music file: {}", e);
         Err("Invalid URL".to_string())
       }
     }
   } else {
-    match songbird::input::ytdl_search(param.clone()).await {
-      Ok(s) => Ok(s),
+    match Restartable::ytdl_search(param.clone(), true).await {
+      Ok(s) => Ok(s.into()),
       Err(e) => {
         error!("Error finding youtube video: {}", e);
         Err(format!("Nothing found with \"{}\"", param))

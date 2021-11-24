@@ -26,16 +26,6 @@ pub struct Play;
 impl Command for Play {
 
   async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    match command.create_interaction_response(&ctx.http, |response| {
-      response
-        .kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        .interaction_response_data(|message| {
-          message.content("Loading song".to_string())
-        })
-    }).await {
-      Ok(_) => info!("Play command deferred"),
-      Err(e) => error!("Error deferring play: {}", e),
-    }
 
 
     let option = match command.data.options.get(0) {
