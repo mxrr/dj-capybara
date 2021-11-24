@@ -14,9 +14,9 @@ use serenity::model::interactions::application_command::{
 use tracing::{info, error};
 use serenity::Error;
 use std::{sync::Arc, time::Duration};
-use serenity::utils::Colour;
 use serenity::model::interactions::message_component::ButtonStyle;
 use songbird::{EventContext, EventHandler, events::Event};
+use crate::constants::EMBED_COLOUR;
 
 pub struct Play;
 
@@ -123,7 +123,7 @@ impl Command for Play {
             embed
               .title(embed_title)
               .image(thumbnail)
-              .colour(Colour::from_rgb(232, 12, 116))
+              .colour(EMBED_COLOUR)
               .fields(vec![
                 ("Track", title, true),
                 ("Length", format_duration(length), true),

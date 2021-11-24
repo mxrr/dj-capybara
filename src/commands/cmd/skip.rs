@@ -8,8 +8,8 @@ use serenity::builder::{CreateApplicationCommand, CreateInteractionResponseData}
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use tracing::{info, error};
 use serenity::Error;
-use serenity::utils::Colour;
 use std::time::Duration;
+use crate::constants::EMBED_COLOUR;
 
 pub struct Skip;
 
@@ -80,7 +80,7 @@ impl Command for Skip {
                 .create_embed(|embed| {
                   embed
                     .title("Skipped")
-                    .colour(Colour::from_rgb(232, 12, 116))
+                    .colour(EMBED_COLOUR)
                     .fields(vec![
                       ("Track", title, true),
                       ("Length", length, true),

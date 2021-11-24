@@ -14,6 +14,7 @@ use serenity::model::prelude::Ready;
 use tracing::{info, error};
 use serenity::async_trait;
 use serenity::Error;
+use crate::constants::EMBED_COLOUR;
 
 pub mod queue;
 
@@ -101,7 +102,11 @@ pub async fn text_response(ctx: &Context, command: ApplicationCommandInteraction
   match command
     .edit_original_interaction_response(&ctx.http, |response| {
       response
-        .content(text)
+        .create_embed(|embed| {
+          embed
+            .title(text)
+            .colour(EMBED_COLOUR)
+        })
     }).await
     {
       Ok(_) => Ok(()),

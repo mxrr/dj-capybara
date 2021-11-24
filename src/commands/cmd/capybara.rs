@@ -15,7 +15,15 @@ const CAPYBARA_GIFS: [&str; 1] = [
 impl Command for Capybara {
 
   async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    text_response(ctx, command, format!("{}", CAPYBARA_GIFS[0])).await
+    match command
+    .edit_original_interaction_response(&ctx.http, |response| {
+      response
+        .content(CAPYBARA_GIFS[0])
+    }).await
+    {
+      Ok(_) => Ok(()),
+      Err(e) => Err(e),
+    }
   }
 
   fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
