@@ -4,6 +4,7 @@ use serenity::model::interactions::application_command::ApplicationCommandIntera
 use serenity::model::prelude::GuildId;
 use songbird::input::{Restartable, Input};
 use tracing::{error};
+use std::time::Duration;
 
 pub struct VOIPData {
   pub channel_id: ChannelId,
@@ -68,4 +69,17 @@ pub async fn get_source(param: String) -> Result<Input, String> {
       }
     }
   }
+}
+
+
+pub fn format_duration(d: Duration) -> String {
+  let s = d.as_secs() % 60;
+  let m = (d.as_secs() / 60) % 60;
+  let h = (d.as_secs() / 60) / 60;
+
+  format!("{}{}{}",
+    if h > 0 { format!("{}h ", h) } else { "".to_string() },
+    if m > 0 { format!("{}m ", m) } else { "".to_string() },
+    if s > 0 { format!("{}s", s) } else if h > 0 || m > 0 { "".to_string() } else { "n/a".to_string() },
+  )
 }

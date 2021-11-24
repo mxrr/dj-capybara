@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 serenity = { version = "0.10.9", default-features = false, features = ["client", "cache", "gateway", "rustls_backend", "model", "voice", "unstable_discord_api"] }
-songbird = "0.2.0"
+songbird = { version = "0.2.0", features = ["builtin-queue"] }
 dotenv = "0.15.0"
 tokio = { version = "1.14.0", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.29"

@@ -1,12 +1,9 @@
-use crate::commands::{
-  Command, 
-  text_response,
-  playback::{
+use crate::commands::{Command, playback::{
     VOIPData, 
     get_source,
-  },
-};
-use serenity::{async_trait, model::interactions::InteractionResponseType};
+    format_duration,
+  }, text_response};
+use serenity::{async_trait, http::Http, model::id::{ChannelId}};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
 use serenity::model::interactions::application_command::{
@@ -16,9 +13,10 @@ use serenity::model::interactions::application_command::{
 };
 use tracing::{info, error};
 use serenity::Error;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use serenity::utils::Colour;
 use serenity::model::interactions::message_component::ButtonStyle;
+use songbird::{EventContext, EventHandler, events::Event};
 
 pub struct Play;
 
@@ -26,7 +24,6 @@ pub struct Play;
 impl Command for Play {
 
   async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-
 
     let option = match command.data.options.get(0) {
       Some(o) => {
@@ -67,7 +64,7 @@ impl Command for Play {
       }
     };
   
-    let handler = match manager.get(guild_id) {
+    let handler_lock = match manager.get(guild_id) {
       Some(h) => h,
       None => {
         let join = manager.join(guild_id, channel_id).await;
@@ -109,15 +106,22 @@ impl Command for Play {
       .source_url
       .clone()
       .unwrap_or("".to_string());
-  
-    let mut handler_lock = handler.lock().await;
-    let _handle = handler_lock.play_only_source(source);
+
+    let mut handler = handler_lock.lock().await;
+
+    let embed_title = match handler.queue().is_empty() {
+      true => "Playing",
+      false => "Added to queue",
+    };
+
+    handler.enqueue_source(source);
   
     match command
       .edit_original_interaction_response(&ctx.http, |response| {
         response
           .create_embed(|embed| {
             embed
+              .title(embed_title)
               .image(thumbnail)
               .colour(Colour::from_rgb(232, 12, 116))
               .fields(vec![
@@ -139,8 +143,8 @@ impl Command for Play {
               })
           })
       }).await {
-        Ok(m) => return Ok(()),
-        Err(e) => return Err(e)
+        Ok(_m) => Ok(()),
+        Err(e) => Err(e)
       }
   }
 
@@ -159,14 +163,19 @@ impl Command for Play {
 
 }
 
-fn format_duration(d: Duration) -> String {
-  let s = d.as_secs() % 60;
-  let m = (d.as_secs() / 60) % 60;
-  let h = (d.as_secs() / 60) / 60;
+struct SongEnd {
+  channel_id: ChannelId,
+  http: Arc<Http>,
+}
 
-  format!("{}{}{}",
-    if h > 0 { format!("{}h ", h) } else { "".to_string() },
-    if m > 0 { format!("{}m ", m) } else { "".to_string() },
-    if s > 0 { format!("{}s", s) } else if h > 0 || m > 0 { "".to_string() } else { "n/a".to_string() },
-  )
+#[async_trait]
+impl EventHandler for SongEnd {
+  async fn act(&self, _ctx: &EventContext<'_>) -> Option<Event> {
+    self
+      .channel_id
+      .say(&self.http, "Persepaska")
+      .await;
+
+    None
+  }
 }

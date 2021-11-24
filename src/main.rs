@@ -59,11 +59,12 @@ async fn main() {
 
   {
     use config::ConfigStorage;
-    use commands::queue::{Queue, GuildQueue};
+    use commands::queue::{Queue};
+    use songbird::tracks::TrackQueue;
     let mut data = client.data.write().await;
     data.insert::<ConfigStorage>(Arc::new(config));
 
-    let queue = HashMap::<GuildId, GuildQueue>::new();
+    let queue = HashMap::<GuildId, TrackQueue>::new();
     data.insert::<Queue>(Arc::new(Mutex::new(queue)));
   }
   

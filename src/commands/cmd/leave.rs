@@ -2,6 +2,7 @@ use crate::commands::text_response;
 use crate::commands::{
   Command, 
   playback::VOIPData,
+  queue::Queue,
 };
 use serenity::async_trait;
 use serenity::client::Context;
@@ -36,6 +37,15 @@ impl Command for Leave {
         error!("Error leaving voice channel: {}", e);
         return text_response(ctx, command, "Error leaving channel".to_string()).await
       } else {
+        let queue_arc = {
+          let data = ctx.data.read().await;
+          data.get::<Queue>()
+            .expect("No queue in global storage")
+            .clone()
+        };
+    
+        let mut queue_lock = queue_arc.lock().await;
+        queue_lock.remove(&guild_id);
         return text_response(ctx, command, "Left channel".to_string()).await
       }
     } else {
