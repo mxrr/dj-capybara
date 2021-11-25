@@ -114,6 +114,29 @@ pub async fn get_source(param: String) -> Result<Input, String> {
 }
 
 
+pub fn get_queue_length_and_duration(queue: &Vec<TrackHandle>) -> (usize, Duration) {
+  (
+    queue.len(),
+    get_queue_duration(queue),
+  )
+}
+
+pub fn get_queue_duration(queue: &Vec<TrackHandle>) -> Duration {
+  queue
+    .iter()
+    .fold(
+      Duration::from_secs(0),
+      |a, c| {
+        let d = c
+          .metadata()
+          .duration
+          .unwrap_or(Duration::from_secs(0));
+        a + d
+      }
+    )
+}
+
+
 pub fn format_duration(d: Duration) -> String {
   let s = d.as_secs() % 60;
   let m = (d.as_secs() / 60) % 60;

@@ -4,6 +4,7 @@ use crate::commands::{
     VOIPData, 
     format_duration,
     SongMetadata,
+    get_queue_length_and_duration,
   }, 
   text_response
 };
@@ -57,19 +58,7 @@ impl Command for Queue {
 
     if handler.queue().len() > 0 {
       let queue = handler.queue().current_queue();
-      let count = handler.queue().len();
-      let duration = queue
-        .iter()
-        .fold(
-          Duration::from_secs(0),
-          |a, c| {
-            let d = c
-              .metadata()
-              .duration
-              .unwrap_or(Duration::from_secs(0));
-            a + d
-          }
-        );
+      let (count, duration) = get_queue_length_and_duration(&queue);
 
 
       let current_metadata = SongMetadata::from_handle(queue[0].clone());
