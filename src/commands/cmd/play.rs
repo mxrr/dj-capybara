@@ -1,9 +1,4 @@
-use crate::commands::{Command, playback::{
-    VOIPData, 
-    get_source,
-    format_duration,
-    SongMetadata,
-  }, text_response};
+use crate::commands::{Command, playback::{SongMetadata, VOIPData, format_duration, get_queue_length_and_duration, get_source}, text_response};
 use serenity::{async_trait, model::id::{ChannelId, GuildId}};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
@@ -109,6 +104,12 @@ impl Command for Play {
 
 
     handler.enqueue(track);
+
+    let (count, duration) = get_queue_length_and_duration(
+      &handler
+      .queue()
+      .current_queue()
+    );
   
     match command
       .edit_original_interaction_response(&ctx.http, |response| {
@@ -123,6 +124,10 @@ impl Command for Play {
                 ("Duration", format_duration(metadata.duration), true),
                 ("Requested by ", command.user.tag(), true)
               ])
+              .footer(|footer| {
+                footer
+                  .text(format!("{} songs in queue - {}", count, format_duration(duration)))
+              })
           })
           .components(|components| {
             components
@@ -136,6 +141,7 @@ impl Command for Play {
                   })
               })
           })
+
       }).await {
         Ok(_m) => Ok(()),
         Err(e) => Err(e)
@@ -213,6 +219,12 @@ impl EventHandler for SongEnd {
 
       let metadata = SongMetadata::from_handle(current);
 
+      let (count, duration) = get_queue_length_and_duration(
+        &handler
+        .queue()
+        .current_queue()
+      );
+
       match self
       .channel_id
       .send_message(&self.ctx.http, |message| {
@@ -226,6 +238,10 @@ impl EventHandler for SongEnd {
                 ("Track", metadata.title, true),
                 ("Duration", format_duration(metadata.duration), true),
               ])
+              .footer(|footer| {
+                footer
+                  .text(format!("{} songs in queue - {}", count, format_duration(duration)))
+              })
 
           })
       })
