@@ -82,9 +82,14 @@ impl Command for Queue {
           Err(_e) => Duration::from_secs(0),
         };
 
+      let current_song_link = queue[0]
+        .metadata()
+        .source_url
+        .clone();
+
       let current_song_info = format!(
         "{} \n**[ {} / {} ]**", 
-        current_song_title,
+        format_with_url(current_song_title, current_song_link),
         format_duration(current_song_position),
         format_duration(current_song_duration),
       );
@@ -131,6 +136,15 @@ impl Command for Queue {
 
 }
 
+
+fn format_with_url(title: String, url: Option<String>) -> String {
+  if let Some(link) = url {
+    format!("[{}]({})", title, link)
+  } else {
+    title
+  }
+}
+
 fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String) {
   let mut pos_out = "".to_string();
   let mut title_out = "".to_string();
@@ -139,10 +153,15 @@ fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String) {
     if i > 4 { break; }
     if i > 0 {
       let title = t
-      .metadata()
-      .title
-      .clone()
-      .unwrap_or("N/A".to_string());
+        .metadata()
+        .title
+        .clone()
+        .unwrap_or("N/A".to_string());
+
+      let url = t
+        .metadata()
+        .source_url
+        .clone();
     
       let duration = format_duration(
         t.metadata()
@@ -151,7 +170,7 @@ fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String) {
       );
 
       pos_out.push_str(format!("#{} \n", i).as_str());
-      title_out.push_str(format!("{} \n", title).as_str());
+      title_out.push_str(format!("{} \n", format_with_url(title, url)).as_str());
       length_out.push_str(format!("{} \n", duration).as_str());
     }
   }
