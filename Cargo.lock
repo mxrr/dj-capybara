@@ -265,6 +265,7 @@ dependencies = [
 name = "dj-capybara"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "dotenv",
  "serenity",
  "songbird",
