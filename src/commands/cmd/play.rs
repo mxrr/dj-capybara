@@ -3,7 +3,7 @@ use crate::commands::{Command, playback::{
     get_source,
     format_duration,
   }, text_response};
-use serenity::{async_trait, http::Http, model::id::ChannelId};
+use serenity::{async_trait, model::id::{ChannelId, GuildId}};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
 use serenity::model::interactions::application_command::{
@@ -13,9 +13,9 @@ use serenity::model::interactions::application_command::{
 };
 use tracing::error;
 use serenity::Error;
-use std::{sync::Arc, time::Duration};
+use std::{time::Duration};
 use serenity::model::interactions::message_component::ButtonStyle;
-use songbird::{EventContext, EventHandler, events::Event};
+use songbird::{EventContext, EventHandler, TrackEvent, events::Event};
 use crate::constants::EMBED_COLOUR;
 
 pub struct Play;
@@ -82,6 +82,8 @@ impl Command for Play {
       Ok(s) => s,
       Err(s) => return text_response(ctx, command, s).await,
     };
+
+    let handler_f = handler_lock.lock();
   
     let title = source
       .metadata
@@ -107,14 +109,26 @@ impl Command for Play {
       .clone()
       .unwrap_or("".to_string());
 
-    let mut handler = handler_lock.lock().await;
 
+    let mut handler = handler_f.await;
     let embed_title = match handler.queue().is_empty() {
       true => "Playing",
       false => "Added to queue",
     };
+    let (track, _) = songbird::tracks::create_player(source);
+    match track.handle.add_event(
+      Event::Track(TrackEvent::End),
+      SongEnd{
+        channel_id: command.channel_id,
+        guild_id: guild_id,
+        ctx: ctx.clone(),
+      }
+    ) {
+      Ok(_) => (),
+      Err(e) => error!("Error adding track event: {}", e),
+    }
 
-    handler.enqueue_source(source);
+    handler.enqueue(track);
   
     match command
       .edit_original_interaction_response(&ctx.http, |response| {
@@ -126,8 +140,8 @@ impl Command for Play {
               .colour(EMBED_COLOUR)
               .fields(vec![
                 ("Track", title, true),
-                ("Length", format_duration(length), true),
-                ("Requester", command.user.tag(), true)
+                ("Duration", format_duration(length), true),
+                ("Requested by ", command.user.tag(), true)
               ])
           })
           .components(|components| {
@@ -165,18 +179,98 @@ impl Command for Play {
 
 struct SongEnd {
   channel_id: ChannelId,
-  http: Arc<Http>,
+  guild_id: GuildId,
+  ctx: Context,
 }
 
 #[async_trait]
 impl EventHandler for SongEnd {
   async fn act(&self, _ctx: &EventContext<'_>) -> Option<Event> {
-    match self
-      .channel_id
-      .say(&self.http, "Persepaska")
-      .await {
-        Ok(_o) => return None,
-        Err(_e) => return None,
+
+    let manager = match songbird::get(&self.ctx).await {
+      Some(arc) => arc.clone(),
+      None => {
+        error!("Error with songbird client");
+        return Some(Event::Cancel)
       }
+    };
+  
+    let handler_lock = match manager.get(self.guild_id) {
+      Some(h) => h,
+      None => {
+        error!("Error locking guild voice client");
+        return Some(Event::Cancel)
+      },
+    };
+
+    let handler = handler_lock.lock().await;
+
+    if handler.queue().len() == 0 {
+      match self
+        .channel_id
+        .send_message(&self.ctx.http, |message| {
+          message
+            .embed(|embed| {
+              embed
+                .colour(EMBED_COLOUR)
+                .title("End of queue")
+            })
+        })
+        .await {
+          Ok(_o) => {
+            return None
+          },
+          Err(e) => {
+            error!("{}", e);
+            return None
+          },
+        }
+    } else {
+      let metadata = match handler.queue().current() {
+        Some(t) => t.metadata().clone(),
+        None => return None,
+      };
+
+      let thumbnail = metadata
+        .thumbnail
+        .clone()
+        .unwrap_or("https://mxrr.dev/files/christmas.gif".to_string());
+
+      let title = metadata
+        .title
+        .clone()
+        .unwrap_or("N/A".to_string());
+
+      let duration = metadata
+        .duration
+        .clone()
+        .unwrap_or_default();
+
+      match self
+      .channel_id
+      .send_message(&self.ctx.http, |message| {
+        message
+          .embed(|embed| {
+            embed
+              .title("Playing")
+              .colour(EMBED_COLOUR)
+              .image(thumbnail)
+              .fields(vec![
+                ("Track", title, true),
+                ("Duration", format_duration(duration), true),
+              ])
+
+          })
+      })
+      .await {
+        Ok(_o) => {
+          return None
+        },
+        Err(e) => {
+          error!("{}", e);
+          return None
+        },
+      }
+    }
   }
 }

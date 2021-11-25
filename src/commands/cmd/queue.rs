@@ -102,7 +102,7 @@ impl Command for Queue {
           ("Currently playing: ", current_song_info, false),
           ("Position", queue_f.0, true),
           ("Track", queue_f.1, true),
-          ("Length", queue_f.2, true),
+          ("Duration", queue_f.2, true),
         ]
       };
 
