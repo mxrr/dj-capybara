@@ -16,8 +16,6 @@ use serenity::async_trait;
 use serenity::Error;
 use crate::constants::EMBED_COLOUR;
 
-pub mod queue;
-
 mod cmd;
 mod playback;
 
