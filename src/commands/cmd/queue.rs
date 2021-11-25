@@ -1,10 +1,10 @@
-use crate::commands::{Command, playback::{VOIPData, format_duration}, queue, text_response};
-use serenity::async_trait;
+use crate::commands::{Command, playback::{VOIPData, format_duration}, text_response};
+use serenity::{async_trait};
 use serenity::client::Context;
-use serenity::builder::{CreateApplicationCommand, CreateInteractionResponseData};
+use serenity::builder::{CreateApplicationCommand};
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use songbird::tracks::TrackHandle;
-use tracing::{info, error};
+use tracing::error;
 use serenity::Error;
 use std::time::Duration;
 use crate::constants::EMBED_COLOUR;

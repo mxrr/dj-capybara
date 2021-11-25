@@ -3,7 +3,7 @@ use crate::commands::{Command, playback::{
     get_source,
     format_duration,
   }, text_response};
-use serenity::{async_trait, http::Http, model::id::{ChannelId}};
+use serenity::{async_trait, http::Http, model::id::ChannelId};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
 use serenity::model::interactions::application_command::{
@@ -11,7 +11,7 @@ use serenity::model::interactions::application_command::{
   ApplicationCommandInteractionDataOptionValue,
   ApplicationCommandOptionType,
 };
-use tracing::{info, error};
+use tracing::error;
 use serenity::Error;
 use std::{sync::Arc, time::Duration};
 use serenity::model::interactions::message_component::ButtonStyle;
@@ -171,11 +171,12 @@ struct SongEnd {
 #[async_trait]
 impl EventHandler for SongEnd {
   async fn act(&self, _ctx: &EventContext<'_>) -> Option<Event> {
-    self
+    match self
       .channel_id
       .say(&self.http, "Persepaska")
-      .await;
-
-    None
+      .await {
+        Ok(_o) => return None,
+        Err(_e) => return None,
+      }
   }
 }

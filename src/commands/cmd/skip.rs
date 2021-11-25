@@ -4,9 +4,9 @@ use crate::commands::{
 };
 use serenity::async_trait;
 use serenity::client::Context;
-use serenity::builder::{CreateApplicationCommand, CreateInteractionResponseData};
+use serenity::builder::CreateApplicationCommand;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
-use tracing::{info, error};
+use tracing::error;
 use serenity::Error;
 use std::time::Duration;
 use crate::constants::EMBED_COLOUR;
