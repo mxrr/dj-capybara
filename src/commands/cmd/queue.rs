@@ -78,7 +78,10 @@ impl Command for Queue {
         .get_info()
         .await {
           Ok(state) => state.position,
-          Err(_e) => Duration::from_secs(0),
+          Err(e) => {
+            error!("Couldn't get track state: {}", e);
+            Duration::from_secs(0)
+          },
         };
 
       let current_song_info = format!(
@@ -110,7 +113,11 @@ impl Command for Queue {
                 .fields(fields)
                 .footer(|footer| {
                   footer
-                    .text(format!("{} songs in queue - {}", count, format_duration(duration)))
+                    .text(
+                      format!("{} songs in queue - {}", 
+                        count, 
+                        format_duration(duration - current_position)
+                      ))
                 })
             })
         }).await {
