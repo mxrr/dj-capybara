@@ -2,9 +2,10 @@ use serenity::client::Context;
 use serenity::model::id::ChannelId;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use serenity::model::prelude::GuildId;
-use songbird::input::{Restartable, Input};
+use songbird::{input::{Restartable, Input}, tracks::TrackHandle};
 use tracing::{error};
 use std::time::Duration;
+use crate::constants::placeholder_img;
 
 pub struct VOIPData {
   pub channel_id: ChannelId,
@@ -49,6 +50,47 @@ impl VOIPData {
     Ok(data)
   }
 }
+
+#[derive(Clone)]
+pub struct SongMetadata {
+  pub title: String,
+  pub thumbnail: String,
+  pub duration: Duration,
+  pub url: Option<String>,
+}
+
+impl SongMetadata {
+  pub fn from_handle(handle: TrackHandle) -> Self {
+    let metadata = handle.metadata();
+
+    let thumbnail = metadata
+      .thumbnail
+      .clone()
+      .unwrap_or(placeholder_img());
+
+    let title = metadata
+      .title
+      .clone()
+      .unwrap_or("N/A".to_string());
+
+    let duration = metadata
+      .duration
+      .clone()
+      .unwrap_or_default();
+
+    let url = metadata
+      .source_url
+      .clone();
+
+    Self {
+      title,
+      thumbnail,
+      duration,
+      url,
+    }
+  }
+}
+
 
 
 pub async fn get_source(param: String) -> Result<Input, String> {

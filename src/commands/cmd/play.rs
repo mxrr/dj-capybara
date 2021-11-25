@@ -2,6 +2,7 @@ use crate::commands::{Command, playback::{
     VOIPData, 
     get_source,
     format_duration,
+    SongMetadata,
   }, text_response};
 use serenity::{async_trait, model::id::{ChannelId, GuildId}};
 use serenity::client::Context;
@@ -13,7 +14,6 @@ use serenity::model::interactions::application_command::{
 };
 use tracing::error;
 use serenity::Error;
-use std::{time::Duration};
 use serenity::model::interactions::message_component::ButtonStyle;
 use songbird::{EventContext, EventHandler, TrackEvent, events::Event};
 use crate::constants::EMBED_COLOUR;
@@ -83,40 +83,12 @@ impl Command for Play {
       Err(s) => return text_response(ctx, command, s).await,
     };
 
-    let handler_f = handler_lock.lock();
-  
-    let title = source
-      .metadata
-      .title
-      .clone()
-      .unwrap_or("Missing title".to_string());
-  
-    let length = source
-      .metadata
-      .duration
-      .clone()
-      .unwrap_or(Duration::from_secs(0));
-
-    let thumbnail = source
-      .metadata
-      .thumbnail
-      .clone()
-      .unwrap_or("https://mxrr.dev/files/christmas.gif".to_string());
-
-    let url = source
-      .metadata
-      .source_url
-      .clone()
-      .unwrap_or("".to_string());
+    let mut handler = handler_lock.lock().await;
 
 
-    let mut handler = handler_f.await;
-    let embed_title = match handler.queue().is_empty() {
-      true => "Playing",
-      false => "Added to queue",
-    };
-    let (track, _) = songbird::tracks::create_player(source);
-    match track.handle.add_event(
+
+    let (track, handle) = songbird::tracks::create_player(source);
+    match handle.add_event(
       Event::Track(TrackEvent::End),
       SongEnd{
         channel_id: command.channel_id,
@@ -128,6 +100,14 @@ impl Command for Play {
       Err(e) => error!("Error adding track event: {}", e),
     }
 
+    let metadata = SongMetadata::from_handle(handle);
+    let url = metadata.url.clone().unwrap_or_default();
+    let embed_title = match handler.queue().is_empty() {
+      true => "Playing",
+      false => "Added to queue",
+    };
+
+
     handler.enqueue(track);
   
     match command
@@ -136,11 +116,11 @@ impl Command for Play {
           .create_embed(|embed| {
             embed
               .title(embed_title)
-              .image(thumbnail)
+              .image(metadata.thumbnail)
               .colour(EMBED_COLOUR)
               .fields(vec![
-                ("Track", title, true),
-                ("Duration", format_duration(length), true),
+                ("Track", metadata.title, true),
+                ("Duration", format_duration(metadata.duration), true),
                 ("Requested by ", command.user.tag(), true)
               ])
           })
@@ -226,25 +206,12 @@ impl EventHandler for SongEnd {
           },
         }
     } else {
-      let metadata = match handler.queue().current() {
-        Some(t) => t.metadata().clone(),
+      let current = match handler.queue().current() {
+        Some(t) => t,
         None => return None,
       };
 
-      let thumbnail = metadata
-        .thumbnail
-        .clone()
-        .unwrap_or("https://mxrr.dev/files/christmas.gif".to_string());
-
-      let title = metadata
-        .title
-        .clone()
-        .unwrap_or("N/A".to_string());
-
-      let duration = metadata
-        .duration
-        .clone()
-        .unwrap_or_default();
+      let metadata = SongMetadata::from_handle(current);
 
       match self
       .channel_id
@@ -254,10 +221,10 @@ impl EventHandler for SongEnd {
             embed
               .title("Playing")
               .colour(EMBED_COLOUR)
-              .image(thumbnail)
+              .image(metadata.thumbnail)
               .fields(vec![
-                ("Track", title, true),
-                ("Duration", format_duration(duration), true),
+                ("Track", metadata.title, true),
+                ("Duration", format_duration(metadata.duration), true),
               ])
 
           })

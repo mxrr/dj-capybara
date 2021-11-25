@@ -1,4 +1,12 @@
-use crate::commands::{Command, playback::{VOIPData, format_duration}, text_response};
+use crate::commands::{
+  Command, 
+  playback::{
+    VOIPData, 
+    format_duration,
+    SongMetadata,
+  }, 
+  text_response
+};
 use serenity::{async_trait};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
@@ -63,35 +71,21 @@ impl Command for Queue {
           }
         );
 
-      let current_song_title = queue[0]
-        .metadata()
-        .title
-        .clone()
-        .unwrap_or("N/A".to_string());
 
-      let current_song_duration = queue[0]
-        .metadata()
-        .duration
-        .clone()
-        .unwrap_or(Duration::from_secs(0));
+      let current_metadata = SongMetadata::from_handle(queue[0].clone());
 
-      let current_song_position = match queue[0]
+      let current_position = match queue[0]
         .get_info()
         .await {
           Ok(state) => state.position,
           Err(_e) => Duration::from_secs(0),
         };
 
-      let current_song_link = queue[0]
-        .metadata()
-        .source_url
-        .clone();
-
       let current_song_info = format!(
         "{} \n**[ {} / {} ]**", 
-        format_with_url(current_song_title, current_song_link),
-        format_duration(current_song_position),
-        format_duration(current_song_duration),
+        format_with_url(current_metadata.title, current_metadata.url),
+        format_duration(current_position),
+        format_duration(current_metadata.duration),
       );
       
       let queue_f = format_queue_string(queue);
@@ -148,31 +142,16 @@ fn format_with_url(title: String, url: Option<String>) -> String {
 fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String) {
   let mut pos_out = "".to_string();
   let mut title_out = "".to_string();
-  let mut length_out = "".to_string();
+  let mut duration_out = "".to_string();
   for (i, t) in queue.iter().enumerate() {
     if i > 4 { break; }
     if i > 0 {
-      let title = t
-        .metadata()
-        .title
-        .clone()
-        .unwrap_or("N/A".to_string());
-
-      let url = t
-        .metadata()
-        .source_url
-        .clone();
-    
-      let duration = format_duration(
-        t.metadata()
-          .duration
-          .unwrap_or(Duration::from_secs(0))
-      );
+      let metadata = SongMetadata::from_handle(t.clone());
 
       pos_out.push_str(format!("#{} \n", i).as_str());
-      title_out.push_str(format!("{} \n", format_with_url(title, url)).as_str());
-      length_out.push_str(format!("{} \n", duration).as_str());
+      title_out.push_str(format!("{} \n", format_with_url(metadata.title, metadata.url)).as_str());
+      duration_out.push_str(format!("{} \n", format_duration(metadata.duration)).as_str());
     }
   }
-  (pos_out, title_out, length_out)
+  (pos_out, title_out, duration_out)
 }
