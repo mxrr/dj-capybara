@@ -16,3 +16,6 @@ pub use queue::Queue;
 
 mod capybara;
 pub use capybara::Capybara;
+
+mod me;
+pub use me::Me;

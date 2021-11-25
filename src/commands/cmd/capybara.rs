@@ -1,7 +1,7 @@
-use crate::commands::{Command, text_response};
+use crate::commands::Command;
 use serenity::async_trait;
 use serenity::client::Context;
-use serenity::builder::{CreateApplicationCommand, CreateInteractionResponseData};
+use serenity::builder::CreateApplicationCommand;
 use serenity::model::interactions::application_command::ApplicationCommandInteraction;
 use serenity::Error;
 
