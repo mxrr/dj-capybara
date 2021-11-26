@@ -18,6 +18,7 @@ use crate::constants::EMBED_COLOUR;
 
 mod cmd;
 mod playback;
+mod utils;
 
 
 #[async_trait]

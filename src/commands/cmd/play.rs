@@ -1,4 +1,15 @@
-use crate::commands::{Command, playback::{SongMetadata, VOIPData, format_duration, get_queue_length_and_duration, get_source}, text_response};
+use crate::commands::{
+  Command, 
+  playback::{
+    SongMetadata, 
+    VOIPData, 
+    format_duration, 
+    get_queue_length_and_duration, 
+    get_source
+  }, 
+  text_response,
+  utils::remove_md_characters,
+};
 use serenity::{async_trait, model::id::{ChannelId, GuildId}};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
@@ -11,7 +22,7 @@ use tracing::error;
 use serenity::Error;
 use serenity::model::interactions::message_component::ButtonStyle;
 use songbird::{EventContext, EventHandler, TrackEvent, events::Event};
-use crate::constants::EMBED_COLOUR;
+use crate::constants::{EMBED_COLOUR, placeholder_img};
 
 pub struct Play;
 
@@ -110,6 +121,14 @@ impl Command for Play {
       .queue()
       .current_queue()
     );
+
+    let user_nick = remove_md_characters(
+      command
+        .user
+        .nick_in(&ctx.http, guild_id)
+        .await
+        .unwrap_or(command.user.tag())
+      );
   
     match command
       .edit_original_interaction_response(&ctx.http, |response| {
@@ -118,11 +137,15 @@ impl Command for Play {
             embed
               .title(embed_title)
               .image(metadata.thumbnail)
+              .author(|author| {
+                author
+                  .name(user_nick)
+                  .icon_url(command.user.face())
+              })
               .colour(EMBED_COLOUR)
               .fields(vec![
-                ("Track", metadata.title, true),
+                ("Track", remove_md_characters(metadata.title), true),
                 ("Duration", format_duration(metadata.duration), true),
-                ("Requested by ", command.user.tag(), true)
               ])
               .footer(|footer| {
                 footer
