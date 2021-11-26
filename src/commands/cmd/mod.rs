@@ -19,3 +19,6 @@ pub use capybara::Capybara;
 
 mod me;
 pub use me::Me;
+
+mod info;
+pub use info::Info;

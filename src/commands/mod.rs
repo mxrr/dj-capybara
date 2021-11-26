@@ -60,6 +60,7 @@ fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicat
     .create_application_command(cmd::Skip::info)
     .create_application_command(cmd::Queue::info)
     .create_application_command(cmd::Me::info)
+    .create_application_command(cmd::Info::info)
 }
 
 pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) {
@@ -83,6 +84,7 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
     "queue" => cmd::Queue::execute(ctx, command),
     "capybara" => cmd::Capybara::execute(ctx, command),
     "me" => cmd::Me::execute(ctx, command),
+    "info" => cmd::Info::execute(ctx, command),
     _ => Box::pin(text_response(ctx, command, format!("Invalid command")))
   };
 
