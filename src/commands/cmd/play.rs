@@ -22,7 +22,7 @@ use tracing::error;
 use serenity::Error;
 use serenity::model::interactions::message_component::ButtonStyle;
 use songbird::{EventContext, EventHandler, TrackEvent, events::Event};
-use crate::constants::{EMBED_COLOUR, placeholder_img};
+use crate::constants::EMBED_COLOUR;
 
 pub struct Play;
 

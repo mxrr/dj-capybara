@@ -6,7 +6,8 @@ use crate::commands::{
     SongMetadata,
     get_queue_length_and_duration,
   }, 
-  text_response
+  text_response,
+  utils::remove_md_characters,
 };
 use serenity::{async_trait};
 use serenity::client::Context;
@@ -75,7 +76,7 @@ impl Command for Queue {
 
       let current_song_info = format!(
         "{} \n**[ {} / {} ]**", 
-        format_with_url(current_metadata.title, current_metadata.url),
+        format_with_url(remove_md_characters(current_metadata.title), current_metadata.url),
         format_duration(current_position),
         format_duration(current_metadata.duration),
       );
@@ -143,9 +144,26 @@ fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String) {
     if i > 4 { break; }
     if i > 0 {
       let metadata = SongMetadata::from_handle(t.clone());
+      let mut title = format_with_url(
+          remove_md_characters(
+            if metadata.title.len() > 40 {
+              let mut t = metadata
+                .title
+                .split_at(37)
+                .0
+                .to_string();
+              t.push_str("...");
+              t
+            } else {
+              metadata.title
+            }
+          ), 
+          metadata.url
+      );
+      title.shrink_to(16);
 
       pos_out.push_str(format!("#{} \n", i).as_str());
-      title_out.push_str(format!("{} \n", format_with_url(metadata.title, metadata.url)).as_str());
+      title_out.push_str(format!("{} \n", title).as_str());
       duration_out.push_str(format!("{} \n", format_duration(metadata.duration)).as_str());
     }
   }
