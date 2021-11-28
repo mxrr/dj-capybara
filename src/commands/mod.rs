@@ -61,6 +61,7 @@ fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicat
     .create_application_command(cmd::Queue::info)
     .create_application_command(cmd::Me::info)
     .create_application_command(cmd::Info::info)
+    .create_application_command(cmd::Stop::info)
 }
 
 pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) {
@@ -82,6 +83,7 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
     "play" => cmd::Play::execute(ctx, command),
     "skip" => cmd::Skip::execute(ctx, command),
     "queue" => cmd::Queue::execute(ctx, command),
+    "stop" => cmd::Stop::execute(ctx, command),
     "capybara" => cmd::Capybara::execute(ctx, command),
     "me" => cmd::Me::execute(ctx, command),
     "info" => cmd::Info::execute(ctx, command),

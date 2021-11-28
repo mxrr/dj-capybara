@@ -14,6 +14,9 @@ pub use skip::Skip;
 mod queue;
 pub use queue::Queue;
 
+mod stop;
+pub use stop::Stop;
+
 mod capybara;
 pub use capybara::Capybara;
 
