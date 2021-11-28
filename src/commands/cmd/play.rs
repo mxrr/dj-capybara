@@ -23,6 +23,7 @@ use serenity::Error;
 use serenity::model::interactions::message_component::ButtonStyle;
 use songbird::{EventContext, EventHandler, TrackEvent, events::Event};
 use crate::constants::EMBED_COLOUR;
+use std::time::Duration;
 
 pub struct Play;
 
@@ -194,7 +195,19 @@ struct SongEnd {
 
 #[async_trait]
 impl EventHandler for SongEnd {
-  async fn act(&self, _ctx: &EventContext<'_>) -> Option<Event> {
+  async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
+
+    if let EventContext::Track(track_ctx) = ctx {
+      let (state, _handle) = track_ctx[0];
+
+      if state.position == Duration::from_secs(0) {
+        return Some(Event::Cancel)
+      }
+
+    } else {
+      return Some(Event::Cancel)
+    }
+
 
     let manager = match songbird::get(&self.ctx).await {
       Some(arc) => arc.clone(),
@@ -214,7 +227,7 @@ impl EventHandler for SongEnd {
 
     let handler = handler_lock.lock().await;
 
-    if handler.queue().len() == 0 {
+    if handler.queue().is_empty() {
       match self
         .channel_id
         .send_message(&self.ctx.http, |message| {
