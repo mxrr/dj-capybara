@@ -23,7 +23,6 @@ use serenity::Error;
 use serenity::model::interactions::message_component::ButtonStyle;
 use songbird::{EventContext, EventHandler, TrackEvent, events::Event};
 use crate::constants::EMBED_COLOUR;
-use std::time::Duration;
 
 pub struct Play;
 
@@ -96,8 +95,8 @@ impl Command for Play {
 
     let (track, handle) = songbird::tracks::create_player(source);
     match handle.add_event(
-      Event::Track(TrackEvent::End),
-      SongEnd{
+      Event::Track(TrackEvent::Play),
+      SongStart{
         channel_id: command.channel_id,
         guild_id: guild_id,
         ctx: ctx.clone(),
@@ -187,27 +186,24 @@ impl Command for Play {
 
 }
 
-struct SongEnd {
+struct SongStart {
   channel_id: ChannelId,
   guild_id: GuildId,
   ctx: Context,
 }
 
 #[async_trait]
-impl EventHandler for SongEnd {
+impl EventHandler for SongStart {
   async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
 
-    if let EventContext::Track(track_ctx) = ctx {
-      let (state, _handle) = track_ctx[0];
-
-      if state.position == Duration::from_secs(0) {
-        return Some(Event::Cancel)
-      }
-
+    let handle = if let EventContext::Track(track_ctx) = ctx {
+      let (_state, handle) = track_ctx[0];
+      handle
     } else {
       return Some(Event::Cancel)
-    }
+    };
 
+    let metadata = SongMetadata::from_handle(handle.clone());
 
     let manager = match songbird::get(&self.ctx).await {
       Some(arc) => arc.clone(),
@@ -216,7 +212,7 @@ impl EventHandler for SongEnd {
         return Some(Event::Cancel)
       }
     };
-  
+
     let handler_lock = match manager.get(self.guild_id) {
       Some(h) => h,
       None => {
@@ -227,69 +223,42 @@ impl EventHandler for SongEnd {
 
     let handler = handler_lock.lock().await;
 
-    if handler.queue().is_empty() {
-      match self
-        .channel_id
-        .send_message(&self.ctx.http, |message| {
-          message
-            .embed(|embed| {
-              embed
-                .colour(EMBED_COLOUR)
-                .title("End of queue")
+    let (count, duration) = get_queue_length_and_duration(
+      &handler
+      .queue()
+      .current_queue()
+    );
+
+    drop(handler);
+
+    match self
+    .channel_id
+    .send_message(&self.ctx.http, |message| {
+      message
+        .embed(|embed| {
+          embed
+            .title("Playing")
+            .colour(EMBED_COLOUR)
+            .image(metadata.thumbnail)
+            .fields(vec![
+              ("Track", metadata.title, true),
+              ("Duration", format_duration(metadata.duration), true),
+            ])
+            .footer(|footer| {
+              footer
+                .text(format!("{} songs in queue - {}", count, format_duration(duration)))
             })
+
         })
-        .await {
-          Ok(_o) => {
-            return None
-          },
-          Err(e) => {
-            error!("{}", e);
-            return None
-          },
-        }
-    } else {
-      let current = match handler.queue().current() {
-        Some(t) => t,
-        None => return None,
-      };
-
-      let metadata = SongMetadata::from_handle(current);
-
-      let (count, duration) = get_queue_length_and_duration(
-        &handler
-        .queue()
-        .current_queue()
-      );
-
-      match self
-      .channel_id
-      .send_message(&self.ctx.http, |message| {
-        message
-          .embed(|embed| {
-            embed
-              .title("Playing")
-              .colour(EMBED_COLOUR)
-              .image(metadata.thumbnail)
-              .fields(vec![
-                ("Track", metadata.title, true),
-                ("Duration", format_duration(metadata.duration), true),
-              ])
-              .footer(|footer| {
-                footer
-                  .text(format!("{} songs in queue - {}", count, format_duration(duration)))
-              })
-
-          })
-      })
-      .await {
-        Ok(_o) => {
-          return None
-        },
-        Err(e) => {
-          error!("{}", e);
-          return None
-        },
-      }
+    })
+    .await {
+      Ok(_o) => {
+        return None
+      },
+      Err(e) => {
+        error!("{}", e);
+        return None
+      },
     }
   }
 }
