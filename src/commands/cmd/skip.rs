@@ -1,4 +1,4 @@
-use crate::commands::{Command, playback::{VOIPData, format_duration, format_duration_live}, text_response};
+use crate::commands::{Command, playback::{VOIPData, format_duration_live}, text_response};
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
