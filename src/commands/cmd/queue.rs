@@ -82,7 +82,22 @@ impl Command for Queue {
 
       let current_song_info = format!(
         "{} \n**[ {} / {} ]**", 
-        format_with_url(remove_md_characters(current_metadata.title.clone()), current_metadata.url),
+        format_with_url(
+          remove_md_characters(
+            if current_metadata.title.len() > 70 {
+              let mut t = current_metadata
+                .title
+                .split_at(67)
+                .0
+                .to_string();
+              t.push_str("...");
+              t
+            } else {
+              current_metadata.title.clone()
+            }
+          ), 
+          current_metadata.url
+        ),
         format_duration(current_position),
         current_song_duration,
       );
