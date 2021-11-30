@@ -1,7 +1,4 @@
-use crate::commands::{
-  Command, text_response,
-  playback::{VOIPData, format_duration},
-};
+use crate::commands::{Command, playback::{VOIPData, format_duration, format_duration_live}, text_response};
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
@@ -67,12 +64,13 @@ impl Command for Skip {
             .clone()
             .unwrap_or("N/A".to_string());
 
-          let length = format_duration(
-            current
+          let length = format_duration_live(
+          current
               .metadata()
               .duration
-              .unwrap_or(Duration::from_secs(0))
-          );
+              .unwrap_or(Duration::from_secs(0)),
+            title.clone()
+          ).0;
 
           match command
             .edit_original_interaction_response(&ctx.http, |response| {
