@@ -3,6 +3,7 @@ use crate::commands::{
   playback::{
     VOIPData, 
     format_duration,
+    format_duration_live,
     SongMetadata,
     get_queue_length_and_duration,
   }, 
@@ -74,14 +75,21 @@ impl Command for Queue {
           },
         };
 
+      let (current_song_duration, mut live) = format_duration_live(
+        current_metadata.duration, 
+        current_metadata.title.clone()
+      );
+
       let current_song_info = format!(
         "{} \n**[ {} / {} ]**", 
-        format_with_url(remove_md_characters(current_metadata.title), current_metadata.url),
+        format_with_url(remove_md_characters(current_metadata.title.clone()), current_metadata.url),
         format_duration(current_position),
-        format_duration(current_metadata.duration),
+        current_song_duration,
       );
       
       let queue_f = format_queue_string(queue);
+
+      live = queue_f.3 || live;
 
       let fields = match handler.queue().len() < 2 {
         true => vec![("Currently playing: ", current_song_info, false),],
@@ -93,9 +101,14 @@ impl Command for Queue {
         ]
       };
 
-      let time_left = duration
-        .checked_sub(current_position)
-        .unwrap_or(Duration::from_secs(0));
+      let time_left = match live {
+        true => "LIVE".to_string(),
+        false => {
+          format_duration(duration
+            .checked_sub(current_position)
+            .unwrap_or(Duration::from_secs(0)))
+        }
+      };
 
       match command
         .edit_original_interaction_response(&ctx.http, |response| {
@@ -110,7 +123,7 @@ impl Command for Queue {
                     .text(
                       format!("{} songs in queue - {}", 
                         count, 
-                        format_duration(time_left)
+                        time_left
                       ))
                 })
             })
@@ -140,10 +153,11 @@ fn format_with_url(title: String, url: Option<String>) -> String {
   }
 }
 
-fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String) {
+fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String, bool) {
   let mut pos_out = "".to_string();
   let mut title_out = "".to_string();
   let mut duration_out = "".to_string();
+  let mut live = false;
   for (i, t) in queue.iter().enumerate() {
     if i > 4 { break; }
     if i > 0 {
@@ -159,17 +173,20 @@ fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String) {
               t.push_str("...");
               t
             } else {
-              metadata.title
+              metadata.title.clone()
             }
           ), 
           metadata.url
       );
       title.shrink_to(16);
 
+      let dur = format_duration_live(metadata.duration, metadata.title);
+      live = dur.1 || live;
+
       pos_out.push_str(format!("#{} \n", i).as_str());
       title_out.push_str(format!("{} \n", title).as_str());
-      duration_out.push_str(format!("{} \n", format_duration(metadata.duration)).as_str());
+      duration_out.push_str(format!("{} \n", dur.0).as_str());
     }
   }
-  (pos_out, title_out, duration_out)
+  (pos_out, title_out, duration_out, live)
 }

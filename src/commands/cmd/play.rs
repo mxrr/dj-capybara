@@ -4,6 +4,7 @@ use crate::commands::{
     SongMetadata, 
     VOIPData, 
     format_duration, 
+    format_duration_live,
     get_queue_length_and_duration, 
     get_source
   }, 
@@ -144,8 +145,8 @@ impl Command for Play {
               })
               .colour(EMBED_COLOUR)
               .fields(vec![
-                ("Track", remove_md_characters(metadata.title), true),
-                ("Duration", format_duration(metadata.duration), true),
+                ("Track", remove_md_characters(metadata.title.clone()), true),
+                ("Duration", format_duration_live(metadata.duration, metadata.title).0, true),
               ])
               .footer(|footer| {
                 footer
@@ -241,8 +242,8 @@ impl EventHandler for SongStart {
             .colour(EMBED_COLOUR)
             .image(metadata.thumbnail)
             .fields(vec![
-              ("Track", metadata.title, true),
-              ("Duration", format_duration(metadata.duration), true),
+              ("Track", remove_md_characters(metadata.title.clone()), true),
+              ("Duration", format_duration_live(metadata.duration, metadata.title).0, true),
             ])
             .footer(|footer| {
               footer

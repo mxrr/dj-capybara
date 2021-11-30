@@ -136,6 +136,14 @@ pub fn get_queue_duration(queue: &Vec<TrackHandle>) -> Duration {
     )
 }
 
+pub fn format_duration_live(d: Duration, t: String) -> (String, bool) {
+  if t.contains("🔴") || t.to_lowercase().contains("live") || t.contains("24/7") {
+    ("LIVE".to_string(), true)
+  } else {
+    (format_duration(d), false)
+  }
+}
+
 
 pub fn format_duration(d: Duration) -> String {
   let s = d.as_secs() % 60;
