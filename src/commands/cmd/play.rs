@@ -231,6 +231,7 @@ impl EventHandler for SongStart {
     );
 
     drop(handler);
+    let url = metadata.url.clone().unwrap_or_default();
 
     match self
     .channel_id
@@ -249,7 +250,18 @@ impl EventHandler for SongStart {
               footer
                 .text(format!("{} songs in queue - {}", count, format_duration(duration)))
             })
-
+        })
+        .components(|components| {
+          components
+            .create_action_row(|row| {
+              row
+                .create_button(|button| {
+                  button
+                    .style(ButtonStyle::Link)
+                    .label("Open in browser")
+                    .url(url)
+                })
+            })
         })
     })
     .await {
