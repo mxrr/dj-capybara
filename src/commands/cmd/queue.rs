@@ -93,6 +93,10 @@ impl Command for Queue {
         ]
       };
 
+      let time_left = duration
+        .checked_sub(current_position)
+        .unwrap_or(Duration::from_secs(0));
+
       match command
         .edit_original_interaction_response(&ctx.http, |response| {
           response
@@ -106,7 +110,7 @@ impl Command for Queue {
                     .text(
                       format!("{} songs in queue - {}", 
                         count, 
-                        format_duration(duration - current_position)
+                        format_duration(time_left)
                       ))
                 })
             })
