@@ -87,7 +87,7 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
     "capybara" => cmd::Capybara::execute(ctx, command),
     "me" => cmd::Me::execute(ctx, command),
     "info" => cmd::Info::execute(ctx, command),
-    _ => Box::pin(text_response(ctx, command, format!("Invalid command")))
+    _ => Box::pin(text_response(ctx, command, "Invalid command"))
   };
 
   if let Err(e) = result.await {
@@ -105,7 +105,8 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
 }
 
 
-pub async fn text_response(ctx: &Context, command: ApplicationCommandInteraction, text: String) -> Result<(), Error> {
+pub async fn text_response<D>(ctx: &Context, command: ApplicationCommandInteraction, text: D) -> Result<(), Error>
+where D: ToString, {
   match command
     .edit_original_interaction_response(&ctx.http, |response| {
       response

@@ -29,7 +29,7 @@ impl Command for Join {
       Some(arc) => arc,
       None => {
         error!("Error with songbird client");
-        return text_response(ctx, command, "Error getting voice client".to_string()).await
+        return text_response(ctx, command, "Error getting voice client").await
       }
     };
   
@@ -39,7 +39,7 @@ impl Command for Join {
       let name = channel_name.clone();
       text_response(ctx, command, format!("Joined channel {}", &name)).await
     } else {
-      return text_response(ctx, command, "Couldn't join channel".to_string()).await
+      return text_response(ctx, command, "Couldn't join channel").await
     }
   }
 

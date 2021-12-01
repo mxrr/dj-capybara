@@ -38,13 +38,13 @@ impl Command for Play {
           Some(opt_val) => opt_val.clone(),
           None => {
             error!("No options provided");
-            return text_response(ctx, command, "No search term or URL in request".to_string()).await
+            return text_response(ctx, command, "No search term or URL in request").await
           }
         }
       },
       None => {
         error!("No options provided");
-        return text_response(ctx, command, "No search term or URL in request".to_string()).await
+        return text_response(ctx, command, "No search term or URL in request").await
       }
     };
   
@@ -52,7 +52,7 @@ impl Command for Play {
       s
     } else {
       error!("Empty URL provided");
-      return text_response(ctx, command, "No search term or URL in request".to_string()).await
+      return text_response(ctx, command, "No search term or URL in request").await
     };
   
     let voip_data = match VOIPData::from(ctx, &command).await {
@@ -67,7 +67,7 @@ impl Command for Play {
       Some(arc) => arc.clone(),
       None => {
         error!("Error with songbird client");
-        return text_response(ctx, command, "Error getting voice client".to_string()).await
+        return text_response(ctx, command, "Error getting voice client").await
       }
     };
   
@@ -79,7 +79,7 @@ impl Command for Play {
           Ok(_) => join.0,
           Err(e) => {
             error!("Error joining voice channel: {}", e);
-            return text_response(ctx, command, "Not in a voice channel".to_string()).await
+            return text_response(ctx, command, "Not in a voice channel").await
           }
         }
       }

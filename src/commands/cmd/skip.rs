@@ -26,7 +26,7 @@ impl Command for Skip {
       Some(arc) => arc.clone(),
       None => {
         error!("Error with songbird client");
-        return text_response(ctx, command, "Error getting voice client".to_string()).await
+        return text_response(ctx, command, "Error getting voice client").await
       }
     };
   
@@ -38,7 +38,7 @@ impl Command for Skip {
           Ok(_) => join.0,
           Err(e) => {
             error!("Error joining voice channel: {}", e);
-            return text_response(ctx, command, "Not in a voice channel".to_string()).await
+            return text_response(ctx, command, "Not in a voice channel").await
           }
         }
       }
@@ -49,13 +49,13 @@ impl Command for Skip {
     if handler.queue().len() > 0 {
       let current = match handler.queue().current() {
         Some(t) => t,
-        None => return text_response(ctx, command, "Nothing to skip".to_string()).await
+        None => return text_response(ctx, command, "Nothing to skip").await
       };
 
       match handler.queue().skip() {
         Err(e) => {
           error!("Error skipping track: {}", e);
-          text_response(ctx, command, "Nothing to skip".to_string()).await
+          text_response(ctx, command, "Nothing to skip").await
         },
         Ok(_) => {
           let title = current
@@ -91,7 +91,7 @@ impl Command for Skip {
         }
       }
     } else {
-      text_response(ctx, command, "Nothing to skip".to_string()).await
+      text_response(ctx, command, "Nothing to skip").await
     }
   }
 

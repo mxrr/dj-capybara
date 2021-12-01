@@ -38,7 +38,7 @@ impl Command for Queue {
       Some(arc) => arc.clone(),
       None => {
         error!("Error with songbird client");
-        return text_response(ctx, command, "Error getting voice client".to_string()).await
+        return text_response(ctx, command, "Error getting voice client").await
       }
     };
   
@@ -50,7 +50,7 @@ impl Command for Queue {
           Ok(_) => join.0,
           Err(e) => {
             error!("Error joining voice channel: {}", e);
-            return text_response(ctx, command, "Not in a voice channel".to_string()).await
+            return text_response(ctx, command, "Not in a voice channel").await
           }
         }
       }
@@ -147,7 +147,7 @@ impl Command for Queue {
           Err(e) => Err(e)
         }
     } else {
-      text_response(ctx, command, "Queue is empty".to_string()).await
+      text_response(ctx, command, "Queue is empty").await
     }
   }
 

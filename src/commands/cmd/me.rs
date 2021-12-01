@@ -31,7 +31,7 @@ impl Command for Me {
           Err(e) => Err(e),
         }
     } else {
-      text_response(ctx, command, "🍊".to_string()).await
+      text_response(ctx, command, "🍊").await
     }
   }
 

@@ -19,7 +19,7 @@ impl Command for Capybara {
   async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
     let filename = match Local::now().weekday() {
       Weekday::Mon => "monday",
-      Weekday::Tue =>  "tuesday",
+      Weekday::Tue => "tuesday",
       Weekday::Wed => "wednesday",
       Weekday::Thu => "thursday",
       Weekday::Fri => "friday",

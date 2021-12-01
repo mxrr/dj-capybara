@@ -35,7 +35,7 @@ impl Command for Info {
           user
         } else {
           error!("Invalid user provided");
-          return text_response(ctx, command, "Invalid user provided".to_string()).await
+          return text_response(ctx, command, "Invalid user provided").await
         }
       },
       None => command.user.clone(),

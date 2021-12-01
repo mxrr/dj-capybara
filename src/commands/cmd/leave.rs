@@ -25,7 +25,7 @@ impl Command for Leave {
       Some(arc) => arc.clone(),
       None => {
         error!("Error with songbird client");
-        return text_response(ctx, command, "Error getting voice client".to_string()).await
+        return text_response(ctx, command, "Error getting voice client").await
       }
     };
   
@@ -34,14 +34,14 @@ impl Command for Leave {
     if let Some(handler_lock) = manager.get(guild_id) {
       if let Err(e) = manager.remove(guild_id).await {
         error!("Error leaving voice channel: {}", e);
-        return text_response(ctx, command, "Error leaving channel".to_string()).await
+        return text_response(ctx, command, "Error leaving channel").await
       } else {
         let handler = handler_lock.lock().await;
         handler.queue().stop();
-        return text_response(ctx, command, "Left channel".to_string()).await
+        return text_response(ctx, command, "Left channel").await
       }
     } else {
-      text_response(ctx, command, "Not in a voice channel".to_string()).await
+      text_response(ctx, command, "Not in a voice channel").await
     }
   }
 

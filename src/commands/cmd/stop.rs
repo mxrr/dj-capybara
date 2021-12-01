@@ -27,19 +27,19 @@ impl Command for Stop {
       Some(arc) => arc.clone(),
       None => {
         error!("Error with songbird client");
-        return text_response(ctx, command, "Error getting voice client".to_string()).await
+        return text_response(ctx, command, "Error getting voice client").await
       }
     };
   
     let handler_lock = match manager.get(guild_id) {
       Some(h) => h,
-      None => return text_response(ctx, command, "Not in a voice channel".to_string()).await,
+      None => return text_response(ctx, command, "Not in a voice channel").await,
     };
 
     let handler = handler_lock.lock().await;
     handler.queue().stop();
 
-    text_response(ctx, command, "Stopped playback and cleared queue".to_string()).await
+    text_response(ctx, command, "Stopped playback and cleared queue").await
   }
 
   fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
