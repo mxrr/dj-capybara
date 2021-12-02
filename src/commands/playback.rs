@@ -6,6 +6,7 @@ use songbird::{input::{Restartable, Input}, tracks::TrackHandle};
 use tracing::{error};
 use std::time::Duration;
 use crate::constants::placeholder_img;
+use regex::Regex;
 
 pub struct VOIPData {
   pub channel_id: ChannelId,
@@ -137,7 +138,9 @@ pub fn get_queue_duration(queue: &Vec<TrackHandle>) -> Duration {
 }
 
 pub fn format_duration_live(d: Duration, t: String) -> (String, bool) {
-  if t.contains("🔴") || t.to_lowercase().contains("live") || t.contains("24/7") {
+  let re = Regex::new(r".+([0-9]){4}-([0-9]){2}-([0-9]){2}\W([0-9]){1,2}:([0-9]){1,2}$")
+    .expect("Failed to compile regex");
+  if re.is_match(&t) {
     ("LIVE".to_string(), true)
   } else {
     (format_duration(d), false)
