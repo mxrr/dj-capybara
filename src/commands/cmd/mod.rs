@@ -25,3 +25,6 @@ pub use me::Me;
 
 mod info;
 pub use info::Info;
+
+mod eval;
+pub use eval::Eval;

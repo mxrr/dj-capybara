@@ -267,6 +267,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "dotenv",
+ "evalexpr",
  "regex",
  "serenity",
  "songbird",
@@ -298,6 +299,12 @@ checksum = "be4551092f4d519593039259a9ed8daedf0da12e5109c5280338073eaeb81180"
 dependencies = [
  "num-traits 0.1.43",
 ]
+
+[[package]]
+name = "evalexpr"
+version = "6.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfc25fd417983cc7f203394ebb89eba18e2df1b0ac1be2673091b5aca52b595f"
 
 [[package]]
 name = "flate2"
