@@ -1,0 +1,34 @@
+name: Build
+
+on:
+  pull_request:
+    branches: [ prod ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  docker:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: satackey/action-docker-layer-caching@v0.0.11
+      continue-on-error: true
+    - name: Create mock env
+      run: touch .env
+    - name: Build
+      run: make docker
+  
+  cargo:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v1.3.0
+      with:
+        sharedKey: capybara
+    - name: Build
+      run: cargo build --verbose

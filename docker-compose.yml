@@ -1,0 +1,5 @@
+services:
+  bot:
+    image: mxr/capybara:latest
+    container_name: capybara
+    restart: unless-stopped

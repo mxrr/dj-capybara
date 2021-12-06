@@ -1,0 +1,28 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ prod ]
+
+jobs:
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Deploy through SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.PORT }}
+        script: |
+          cd ${{ secrets.PROJECT_FOLDER }} 
+          git fetch
+          git checkout prod
+          git pull
+          make docker
+          docker-compose down
+          docker-compose up -d

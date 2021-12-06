@@ -1,5 +1,5 @@
 [package]
-name = "dj-capybara"
+name = "capybara"
 version = "0.1.0"
 edition = "2018"
 
