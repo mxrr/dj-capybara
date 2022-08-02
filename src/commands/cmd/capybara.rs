@@ -9,7 +9,7 @@ use crate::constants::EMBED_COLOUR;
 
 pub struct Capybara;
 
-const FILE_URL: &str = "https://mxrr.dev/files/capybara-gifs/";
+const FILE_URL: &str = "https://karei.dev/files/capybara-gifs/";
 const FILE_PREFIX: &str = "cp_";
 
 
