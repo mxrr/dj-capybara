@@ -1,3 +1,4 @@
+use crate::commands::utils::remove_md_characters;
 use crate::commands::{Command, text_response};
 use serenity::async_trait;
 use serenity::client::Context;
@@ -61,7 +62,7 @@ impl Command for Eval {
         response
           .create_embed(|embed| {
             embed
-              .title(expr)
+              .title(remove_md_characters(expr))
               .colour(EMBED_COLOUR)
               .description(desc)
           })
