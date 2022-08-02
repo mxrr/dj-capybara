@@ -32,6 +32,10 @@ impl Command for Leave {
     let guild_id = voip_data.guild_id;
   
     if let Some(handler_lock) = manager.get(guild_id) {
+      if !voip_data.compare_to_call(&handler_lock).await {
+        return text_response(ctx, command, "You're not in the voice channel").await
+      }
+
       if let Err(e) = manager.remove(guild_id).await {
         error!("Error leaving voice channel: {}", e);
         return text_response(ctx, command, "Error leaving channel").await
