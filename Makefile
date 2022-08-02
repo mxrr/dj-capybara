@@ -1,2 +1,2 @@
 docker:
-	docker build -t mxr/priidik-bot:latest .
+	docker build -t kareigu/capybara:latest .
