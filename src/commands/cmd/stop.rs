@@ -6,7 +6,7 @@ use crate::commands::{
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use tracing::error;
 use serenity::Error;
 

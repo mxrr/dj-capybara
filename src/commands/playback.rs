@@ -1,10 +1,11 @@
-use serenity::client::Context;
+use serenity::prelude::Mutex;
+use serenity::{client::Context};
 use serenity::model::id::ChannelId;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::prelude::GuildId;
 use songbird::{input::{Restartable, Input}, tracks::TrackHandle};
 use tracing::{error};
-use std::time::Duration;
+use std::{time::Duration, sync::Arc};
 use crate::constants::placeholder_img;
 use regex::Regex;
 
@@ -24,7 +25,7 @@ impl VOIPData {
       }
     };
   
-    let guild_cache = guild_id.to_guild_cached(&ctx.cache).await;
+    let guild_cache = guild_id.to_guild_cached(&ctx.cache);
   
     let channel_id = match guild_cache {
       Some(guild) => {
@@ -49,6 +50,10 @@ impl VOIPData {
   
     let data = VOIPData{channel_id, guild_id};
     Ok(data)
+  }
+
+  pub async fn compare_to_call(&self, call: &Arc<Mutex<songbird::Call>>) -> bool {
+    call.lock().await.current_channel().unwrap_or_default().0 == self.channel_id.0
   }
 }
 

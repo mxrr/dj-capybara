@@ -2,7 +2,7 @@ use crate::commands::{Command, playback::{VOIPData, format_duration_live}, text_
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use tracing::error;
 use serenity::Error;
 use std::time::Duration;
@@ -20,7 +20,6 @@ impl Command for Skip {
     };
   
     let guild_id = voip_data.guild_id;
-    let channel_id = voip_data.channel_id;
   
     let manager = match songbird::get(ctx).await {
       Some(arc) => arc.clone(),
@@ -31,16 +30,12 @@ impl Command for Skip {
     };
   
     let handler_lock = match manager.get(guild_id) {
-      Some(h) => h,
+      Some(h) => {
+        if voip_data.compare_to_call(&h).await { h }
+        else { return text_response(ctx, command, "You're not in the voice channel").await }
+      },
       None => {
-        let join = manager.join(guild_id, channel_id).await;
-        match join.1 {
-          Ok(_) => join.0,
-          Err(e) => {
-            error!("Error joining voice channel: {}", e);
-            return text_response(ctx, command, "Not in a voice channel").await
-          }
-        }
+        return text_response(ctx, command, "Not in a voice channel").await
       }
     };
 
@@ -75,7 +70,7 @@ impl Command for Skip {
           match command
             .edit_original_interaction_response(&ctx.http, |response| {
               response
-                .create_embed(|embed| {
+                .embed(|embed| {
                   embed
                     .title("Skipped")
                     .colour(EMBED_COLOUR)

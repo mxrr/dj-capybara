@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::commands::{
   Command, 
   playback::{
@@ -11,18 +13,18 @@ use crate::commands::{
   text_response,
   utils::remove_md_characters,
 };
-use serenity::{async_trait, model::id::{ChannelId, GuildId}};
+use serenity::{async_trait, model::id::{ChannelId, GuildId}, prelude::Mutex};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
-use serenity::model::interactions::application_command::{
+use serenity::model::application::interaction::application_command::{
   ApplicationCommandInteraction,
-  ApplicationCommandInteractionDataOptionValue,
-  ApplicationCommandOptionType,
+  CommandDataOptionValue,
 };
+use serenity::model::prelude::command::CommandOptionType;
 use tracing::error;
 use serenity::Error;
-use serenity::model::interactions::message_component::ButtonStyle;
-use songbird::{EventContext, EventHandler, TrackEvent, events::Event};
+use serenity::model::application::component::ButtonStyle;
+use songbird::{EventContext, EventHandler, TrackEvent, events::Event, Call, Songbird};
 use crate::constants::EMBED_COLOUR;
 
 pub struct Play;
@@ -48,7 +50,7 @@ impl Command for Play {
       }
     };
   
-    let param = if let ApplicationCommandInteractionDataOptionValue::String(s) = option {
+    let param = if let CommandDataOptionValue::String(s) = option {
       s
     } else {
       error!("Empty URL provided");
@@ -61,7 +63,6 @@ impl Command for Play {
     };
   
     let guild_id = voip_data.guild_id;
-    let channel_id = voip_data.channel_id;
   
     let manager = match songbird::get(ctx).await {
       Some(arc) => arc.clone(),
@@ -72,15 +73,20 @@ impl Command for Play {
     };
   
     let handler_lock = match manager.get(guild_id) {
-      Some(h) => h,
-      None => {
-        let join = manager.join(guild_id, channel_id).await;
-        match join.1 {
-          Ok(_) => join.0,
-          Err(e) => {
-            error!("Error joining voice channel: {}", e);
-            return text_response(ctx, command, "Not in a voice channel").await
+      Some(h) => {
+        if voip_data.compare_to_call(&h).await {
+          h
+        } else {
+          match join_channel(manager, voip_data).await {
+            Ok(h) => h,
+            Err(e) => return text_response(ctx, command, e).await
           }
+        }
+      },
+      None => {
+        match join_channel(manager, voip_data).await {
+          Ok(h) => h,
+          Err(e) => return text_response(ctx, command, e).await
         }
       }
     };
@@ -134,7 +140,7 @@ impl Command for Play {
     match command
       .edit_original_interaction_response(&ctx.http, |response| {
         response
-          .create_embed(|embed| {
+          .embed(|embed| {
             embed
               .title(embed_title)
               .image(metadata.thumbnail)
@@ -180,7 +186,7 @@ impl Command for Play {
         option
           .name("search")
           .description("Search term or a link to a YouTube video or a file")
-          .kind(ApplicationCommandOptionType::String)
+          .kind(CommandOptionType::String)
           .required(true)
       })
   }
@@ -272,6 +278,17 @@ impl EventHandler for SongStart {
         error!("{}", e);
         return None
       },
+    }
+  }
+}
+
+async fn join_channel(manager: Arc<Songbird>, voip_data: VOIPData) -> Result<Arc<Mutex<Call>>, String> {
+  let join = manager.join(voip_data.guild_id, voip_data.channel_id).await;
+  match join.1 {
+    Ok(_) => Ok(join.0),
+    Err(e) => {
+      error!("Error joining voice channel: {}", e);
+      Err("Not in a voice channel".to_string())
     }
   }
 }

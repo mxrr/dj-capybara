@@ -6,7 +6,11 @@ use crate::commands::{
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
-use serenity::model::interactions::application_command::{ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue, ApplicationCommandOptionType};
+use serenity::model::application::interaction::application_command::{
+  ApplicationCommandInteraction,
+  CommandDataOptionValue,
+};
+use serenity::model::prelude::command::CommandOptionType;
 use tracing::{error};
 use serenity::Error;
 use crate::constants::EMBED_COLOUR;
@@ -31,8 +35,14 @@ impl Command for Info {
 
     let user = match option {
       Some(o) => {
-        if let ApplicationCommandInteractionDataOptionValue::User(user, _) = o {
-          user
+        if let CommandDataOptionValue::User(user, _) = o {
+          match ctx.http.get_user(user.id.0).await {
+            Err(e) => {
+              error!("Couldn't fetch user {}", e);
+              user
+            },
+            Ok(u) => u,
+          }
         } else {
           error!("Invalid user provided");
           return text_response(ctx, command, "Invalid user provided").await
@@ -41,27 +51,39 @@ impl Command for Info {
       None => command.user.clone(),
     };
 
-    let nick = if let Some(guild_id) = command.guild_id {
-      user
-        .nick_in(&ctx.http, guild_id)
-        .await
-        .unwrap_or(user.name.clone())
+    let (nick, avatar) = if let Some(guild_id) = command.guild_id {
+      match ctx.http.get_member(guild_id.0, user.id.0).await {
+        Err(e) => {
+          error!("Couldn't fetch member {}", e);
+          (user.name.clone(), user.face())
+        } ,
+        Ok(member) => (member.display_name().into_owned(), member.avatar_url().unwrap_or(user.face()))
+      }
     } else {
-      user.name.clone()
+      (user.name.clone(), user.face())
     };
+
+    let join_time = chrono::NaiveDateTime::from_timestamp(user.created_at().unix_timestamp(), 0);
+    let join_time_string = join_time.format("%d %B %Y, %H:%M:%S").to_string();
+
+
+    let user_colour = user.accent_colour.unwrap_or(EMBED_COLOUR);
+
+    let banner_url = user.banner_url().unwrap_or_default();
     
 
     match command
       .edit_original_interaction_response(&ctx.http, |response| {
         response
-          .create_embed(|embed| {
+          .embed(|embed| {
             embed
-              .title(user.tag())
-              .thumbnail(user.face())
-              .colour(EMBED_COLOUR)
+              .title(remove_md_characters(nick))
+              .image(banner_url)
+              .thumbnail(avatar)
+              .colour(user_colour)
               .fields(vec![
-                ("Name in guild", remove_md_characters(nick), true),
-                ("Joined at", user.created_at().to_string(), true),
+                ("User", user.tag(), true),
+                ("Joined at", join_time_string, true),
                 ("Is a bot?", if user.bot { "Yes".to_string() } else { "No".to_string() }, false)
               ])
               .footer(|footer| {
@@ -83,7 +105,7 @@ impl Command for Info {
         option
           .name("user")
           .description("User you want to view info on, defaults your own user")
-          .kind(ApplicationCommandOptionType::User)
+          .kind(CommandOptionType::User)
           .required(false)
       })
   }

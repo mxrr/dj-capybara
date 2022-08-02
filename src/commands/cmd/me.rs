@@ -2,7 +2,7 @@ use crate::commands::{Command, text_response};
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::Error;
 use crate::constants::EMBED_COLOUR;
 
@@ -12,11 +12,11 @@ pub struct Me;
 impl Command for Me {
 
   async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    if let Some(avatar) = ctx.cache.current_user().await.avatar_url() {
+    if let Some(avatar) = ctx.cache.current_user().avatar_url() {
       match command
         .edit_original_interaction_response(&ctx.http, |response| {
           response
-            .create_embed(|embed| {
+            .embed(|embed| {
               embed
                 .image(avatar)
                 .colour(EMBED_COLOUR)
