@@ -14,6 +14,9 @@ pub use skip::Skip;
 mod queue;
 pub use queue::Queue;
 
+mod seek;
+pub use seek::Seek;
+
 mod stop;
 pub use stop::Stop;
 
