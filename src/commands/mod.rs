@@ -20,6 +20,8 @@ mod cmd;
 mod playback;
 mod utils;
 
+static COMMAND_TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(3);
+
 
 #[async_trait]
 trait Command {
@@ -81,37 +83,51 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
     response
       .kind(InteractionResponseType::DeferredChannelMessageWithSource)
       .interaction_response_data(|message| {
-        message.content("Loading song".to_string())
+        message.content("Loading".to_string())
       })
   }).await {
     Ok(_) => info!("{} command deferred", name),
     Err(e) => error!("Error deferring command {}: {}",name , e),
   }
+
+  let command_copy = command.clone();
   let result = match name.as_str(){
-    "join" => cmd::Join::execute(ctx, command),
-    "leave" => cmd::Leave::execute(ctx, command),
-    "play" => cmd::Play::execute(ctx, command),
-    "skip" => cmd::Skip::execute(ctx, command),
-    "queue" => cmd::Queue::execute(ctx, command),
-    "stop" => cmd::Stop::execute(ctx, command),
-    "capybara" => cmd::Capybara::execute(ctx, command),
-    "me" => cmd::Me::execute(ctx, command),
-    "info" => cmd::Info::execute(ctx, command),
-    "eval" => cmd::Eval::execute(ctx, command),
-    _ => Box::pin(text_response(ctx, command, "Invalid command"))
+    "join" => cmd::Join::execute(ctx, command_copy),
+    "leave" => cmd::Leave::execute(ctx, command_copy),
+    "play" => cmd::Play::execute(ctx, command_copy),
+    "skip" => cmd::Skip::execute(ctx, command_copy),
+    "queue" => cmd::Queue::execute(ctx, command_copy),
+    "stop" => cmd::Stop::execute(ctx, command_copy),
+    "capybara" => cmd::Capybara::execute(ctx, command_copy),
+    "me" => cmd::Me::execute(ctx, command_copy),
+    "info" => cmd::Info::execute(ctx, command_copy),
+    "eval" => cmd::Eval::execute(ctx, command_copy),
+    _ => Box::pin(text_response(ctx, command_copy, "Invalid command"))
   };
 
-  if let Err(e) = result.await {
-    error!("Couldn't respond to command: {}", e);
-    error!("{user} failed running command {cmd}", 
-      user = user.tag(),
-      cmd = name
-    )
-  } else {
-    info!("{user} ran command {cmd}", 
-      user = user.tag(),
-      cmd = name
-    )
+  match tokio::time::timeout(COMMAND_TIMEOUT, result).await {
+    Ok(result) => {
+      if let Err(e) = result {
+        error!("Couldn't respond to command: {}", e);
+        error!("{user} failed running command {cmd}", 
+          user = user.tag(),
+          cmd = name
+        )
+      } else {
+        info!("{user} ran command {cmd}", 
+          user = user.tag(),
+          cmd = name
+        )
+      }
+    },
+    Err(e) => {
+      error!("Couldn't respond to command: {}", e);
+      error!("{user} failed running command {cmd}", 
+        user = user.tag(),
+        cmd = name
+      );
+      text_response(ctx, command, "Took too long processing command").await.unwrap_or(());
+    }
   }
 }
 
