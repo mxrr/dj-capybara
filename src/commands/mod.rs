@@ -20,7 +20,7 @@ mod cmd;
 mod playback;
 mod utils;
 
-static COMMAND_TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(3);
+static COMMAND_TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(10);
 
 
 #[async_trait]
