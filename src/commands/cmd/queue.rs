@@ -32,7 +32,6 @@ impl Command for Queue {
     };
   
     let guild_id = voip_data.guild_id;
-    let channel_id = voip_data.channel_id;
   
     let manager = match songbird::get(ctx).await {
       Some(arc) => arc.clone(),
@@ -45,14 +44,7 @@ impl Command for Queue {
     let handler_lock = match manager.get(guild_id) {
       Some(h) => h,
       None => {
-        let join = manager.join(guild_id, channel_id).await;
-        match join.1 {
-          Ok(_) => join.0,
-          Err(e) => {
-            error!("Error joining voice channel: {}", e);
-            return text_response(ctx, command, "Not in a voice channel").await
-          }
-        }
+        return text_response(ctx, command, "Not in a voice channel").await
       }
     };
 
