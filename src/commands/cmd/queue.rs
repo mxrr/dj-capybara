@@ -13,7 +13,7 @@ use crate::commands::{
 use serenity::{async_trait};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use songbird::tracks::TrackHandle;
 use tracing::error;
 use serenity::Error;
@@ -128,7 +128,7 @@ impl Command for Queue {
       match command
         .edit_original_interaction_response(&ctx.http, |response| {
           response
-            .create_embed(|embed| {
+            .embed(|embed| {
               embed
                 .title("Queue")
                 .colour(EMBED_COLOUR)

@@ -1,7 +1,7 @@
 use serenity::prelude::Mutex;
 use serenity::{client::Context};
 use serenity::model::id::ChannelId;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::prelude::GuildId;
 use songbird::{input::{Restartable, Input}, tracks::TrackHandle};
 use tracing::{error};
@@ -25,7 +25,7 @@ impl VOIPData {
       }
     };
   
-    let guild_cache = guild_id.to_guild_cached(&ctx.cache).await;
+    let guild_cache = guild_id.to_guild_cached(&ctx.cache);
   
     let channel_id = match guild_cache {
       Some(guild) => {

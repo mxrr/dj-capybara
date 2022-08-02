@@ -1,11 +1,11 @@
 use serenity::async_trait;
 use serenity::client::{
-  Client, Context, EventHandler,
-  bridge::gateway::GatewayIntents
+  Client, Context, EventHandler
 };
 use serenity::model::{
   prelude::*,
-  gateway::Activity
+  gateway::Activity,
+  application::interaction::Interaction
 };
 use songbird::SerenityInit;
 use tracing::{info, error};
@@ -41,16 +41,19 @@ impl EventHandler for Handler {
 #[tokio::main]
 async fn main() {
   tracing_subscriber::fmt::init();
+  info!("Tracing initialised");
   let config = config::read_config();
+  info!("Config read");
+  let intents = GatewayIntents::empty() | 
+                                GatewayIntents::GUILDS | 
+                                GatewayIntents::GUILD_MESSAGES |
+                                GatewayIntents::GUILD_VOICE_STATES;
 
-  let mut client = Client::builder(config.token.clone())
+  info!("Intents: {:?}", intents);
+
+  let mut client = Client::builder(config.token.clone(), intents)
     .event_handler(Handler)
     .application_id(config.application_id.clone())
-    .intents(
-      GatewayIntents::GUILDS | 
-      GatewayIntents::GUILD_MESSAGES |
-      GatewayIntents::GUILD_VOICE_STATES
-    )
     .register_songbird()
     .await
     .expect("Error creating client");
@@ -62,6 +65,6 @@ async fn main() {
   }
   
   if let Err(e) = client.start().await {
-    error!("Client error: {:?}", e);
+    error!("Client error: {:?}", e)
   }
 }

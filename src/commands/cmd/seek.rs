@@ -3,7 +3,11 @@ use crate::commands::{Command, text_response};
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
-use serenity::model::interactions::application_command::{ApplicationCommandInteraction, ApplicationCommandOptionType, ApplicationCommandInteractionDataOptionValue};
+use serenity::model::application::interaction::application_command::{
+  ApplicationCommandInteraction,
+  CommandDataOptionValue,
+};
+use serenity::model::prelude::command::CommandOptionType;
 use tracing::{error};
 use serenity::Error;
 
@@ -34,7 +38,7 @@ impl Command for Seek {
       }
     };
 
-    let timestamp = if let ApplicationCommandInteractionDataOptionValue::Number(time) = seek_option {
+    let timestamp = if let CommandDataOptionValue::Number(time) = seek_option {
       std::time::Duration::from_secs_f64(time)
     } else {
       error!("Invalid option type");
@@ -99,7 +103,7 @@ impl Command for Seek {
       option
         .name("seconds")
         .description("Jump to this point in the audio")
-        .kind(ApplicationCommandOptionType::Number)
+        .kind(CommandOptionType::Number)
         .required(true)
     })
   }

@@ -6,7 +6,11 @@ use crate::commands::{
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
-use serenity::model::interactions::application_command::{ApplicationCommandInteraction, ApplicationCommandInteractionDataOptionValue, ApplicationCommandOptionType};
+use serenity::model::application::interaction::application_command::{
+  ApplicationCommandInteraction,
+  CommandDataOptionValue,
+};
+use serenity::model::prelude::command::CommandOptionType;
 use tracing::{error};
 use serenity::Error;
 use crate::constants::EMBED_COLOUR;
@@ -31,7 +35,7 @@ impl Command for Info {
 
     let user = match option {
       Some(o) => {
-        if let ApplicationCommandInteractionDataOptionValue::User(user, _) = o {
+        if let CommandDataOptionValue::User(user, _) = o {
           user
         } else {
           error!("Invalid user provided");
@@ -54,7 +58,7 @@ impl Command for Info {
     match command
       .edit_original_interaction_response(&ctx.http, |response| {
         response
-          .create_embed(|embed| {
+          .embed(|embed| {
             embed
               .title(user.tag())
               .thumbnail(user.face())
@@ -83,7 +87,7 @@ impl Command for Info {
         option
           .name("user")
           .description("User you want to view info on, defaults your own user")
-          .kind(ApplicationCommandOptionType::User)
+          .kind(CommandOptionType::User)
           .required(false)
       })
   }

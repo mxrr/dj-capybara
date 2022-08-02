@@ -3,11 +3,11 @@ use crate::commands::{Command, text_response};
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
-use serenity::model::interactions::application_command::{
+use serenity::model::application::interaction::application_command::{
   ApplicationCommandInteraction,
-  ApplicationCommandOptionType,
-  ApplicationCommandInteractionDataOptionValue
+  CommandDataOptionValue,
 };
+use serenity::model::prelude::command::CommandOptionType;
 use tracing::{error};
 use serenity::Error;
 use evalexpr::eval;
@@ -35,7 +35,7 @@ impl Command for Eval {
       }
     };
 
-    let expr = if let ApplicationCommandInteractionDataOptionValue::String(expr) = expr_option {
+    let expr = if let CommandDataOptionValue::String(expr) = expr_option {
       expr
     } else {
       error!("Invalid option type");
@@ -60,7 +60,7 @@ impl Command for Eval {
     match command
       .edit_original_interaction_response(&ctx.http, |response| {
         response
-          .create_embed(|embed| {
+          .embed(|embed| {
             embed
               .title(remove_md_characters(expr))
               .colour(EMBED_COLOUR)
@@ -80,7 +80,7 @@ impl Command for Eval {
         option
           .name("expression")
           .description("Expression to evaluate (use \"help\" to get a cheatsheet of available functions)")
-          .kind(ApplicationCommandOptionType::String)
+          .kind(CommandOptionType::String)
           .required(true)
       })
   }

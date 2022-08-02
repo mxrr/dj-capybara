@@ -16,14 +16,14 @@ use crate::commands::{
 use serenity::{async_trait, model::id::{ChannelId, GuildId}, prelude::Mutex};
 use serenity::client::Context;
 use serenity::builder::{CreateApplicationCommand};
-use serenity::model::interactions::application_command::{
+use serenity::model::application::interaction::application_command::{
   ApplicationCommandInteraction,
-  ApplicationCommandInteractionDataOptionValue,
-  ApplicationCommandOptionType,
+  CommandDataOptionValue,
 };
+use serenity::model::prelude::command::CommandOptionType;
 use tracing::error;
 use serenity::Error;
-use serenity::model::interactions::message_component::ButtonStyle;
+use serenity::model::application::component::ButtonStyle;
 use songbird::{EventContext, EventHandler, TrackEvent, events::Event, Call, Songbird};
 use crate::constants::EMBED_COLOUR;
 
@@ -50,7 +50,7 @@ impl Command for Play {
       }
     };
   
-    let param = if let ApplicationCommandInteractionDataOptionValue::String(s) = option {
+    let param = if let CommandDataOptionValue::String(s) = option {
       s
     } else {
       error!("Empty URL provided");
@@ -140,7 +140,7 @@ impl Command for Play {
     match command
       .edit_original_interaction_response(&ctx.http, |response| {
         response
-          .create_embed(|embed| {
+          .embed(|embed| {
             embed
               .title(embed_title)
               .image(metadata.thumbnail)
@@ -186,7 +186,7 @@ impl Command for Play {
         option
           .name("search")
           .description("Search term or a link to a YouTube video or a file")
-          .kind(ApplicationCommandOptionType::String)
+          .kind(CommandOptionType::String)
           .required(true)
       })
   }

@@ -3,7 +3,7 @@ use serenity::builder::{
   CreateApplicationCommand, 
   CreateApplicationCommands
 };
-use serenity::model::interactions::{
+use serenity::model::application::interaction::{
   InteractionResponseType,
   application_command::{
     ApplicationCommandInteraction,
@@ -139,7 +139,7 @@ where D: ToString, {
   match command
     .edit_original_interaction_response(&ctx.http, |response| {
       response
-        .create_embed(|embed| {
+        .embed(|embed| {
           embed
             .title(text)
             .colour(EMBED_COLOUR)

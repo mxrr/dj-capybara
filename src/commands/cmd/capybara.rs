@@ -2,7 +2,7 @@ use crate::commands::Command;
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
-use serenity::model::interactions::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::Error;
 use chrono::prelude::*;
 use crate::constants::EMBED_COLOUR;
@@ -29,7 +29,7 @@ impl Command for Capybara {
     match command
     .edit_original_interaction_response(&ctx.http, |response| {
       response
-        .create_embed(|embed| {
+        .embed(|embed| {
           embed
             .image(format!(
               "{url}{prefix}{filename}.gif", 
