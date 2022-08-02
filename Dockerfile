@@ -6,6 +6,9 @@ RUN USER=root cargo new --bin capybara
 
 WORKDIR /usr/src/capybara
 
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends cmake
+
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
 
