@@ -1,21 +1,19 @@
 use crate::commands::Command;
+use crate::constants::EMBED_COLOUR;
+use chrono::prelude::*;
 use serenity::async_trait;
-use serenity::client::Context;
 use serenity::builder::CreateApplicationCommand;
+use serenity::client::Context;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::Error;
-use chrono::prelude::*;
-use crate::constants::EMBED_COLOUR;
 
 pub struct Capybara;
 
 const FILE_URL: &str = "https://karei.dev/files/capybara-gifs/";
 const FILE_PREFIX: &str = "cp_";
 
-
 #[async_trait]
 impl Command for Capybara {
-
   async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
     let filename = match Local::now().weekday() {
       Weekday::Mon => "monday",
@@ -27,19 +25,19 @@ impl Command for Capybara {
       Weekday::Sun => "sunday",
     };
     match command
-    .edit_original_interaction_response(&ctx.http, |response| {
-      response
-        .embed(|embed| {
+      .edit_original_interaction_response(&ctx.http, |response| {
+        response.embed(|embed| {
           embed
             .image(format!(
-              "{url}{prefix}{filename}.gif", 
+              "{url}{prefix}{filename}.gif",
               url = FILE_URL,
               prefix = FILE_PREFIX,
               filename = filename
             ))
             .colour(EMBED_COLOUR)
         })
-    }).await
+      })
+      .await
     {
       Ok(_) => Ok(()),
       Err(e) => Err(e),
@@ -51,5 +49,4 @@ impl Command for Capybara {
       .name("capybara")
       .description("Post today's capybara gif")
   }
-
 }

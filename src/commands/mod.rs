@@ -1,27 +1,20 @@
-use crate::config::{ConfigStorage};
-use serenity::builder::{
-  CreateApplicationCommand, 
-  CreateApplicationCommands
-};
-use serenity::model::application::interaction::{
-  InteractionResponseType,
-  application_command::{
-    ApplicationCommandInteraction,
-  }
-};
-use serenity::prelude::Context;
-use serenity::model::prelude::Ready;
-use tracing::{info, error};
-use serenity::async_trait;
-use serenity::Error;
+use crate::config::ConfigStorage;
 use crate::constants::EMBED_COLOUR;
+use serenity::async_trait;
+use serenity::builder::{CreateApplicationCommand, CreateApplicationCommands};
+use serenity::model::application::interaction::{
+  application_command::ApplicationCommandInteraction, InteractionResponseType,
+};
+use serenity::model::prelude::Ready;
+use serenity::prelude::Context;
+use serenity::Error;
+use tracing::{error, info};
 
 mod cmd;
 mod playback;
 mod utils;
 
 static COMMAND_TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs(10);
-
 
 #[async_trait]
 trait Command {
@@ -32,7 +25,8 @@ trait Command {
 pub async fn register_commands(ctx: &Context, _ready: &Ready) {
   let config_lock = {
     let data = ctx.data.read().await;
-    data.get::<ConfigStorage>()
+    data
+      .get::<ConfigStorage>()
       .expect("No config in global storage")
       .clone()
   };
@@ -44,19 +38,15 @@ pub async fn register_commands(ctx: &Context, _ready: &Ready) {
 
     match commands {
       Ok(c) => {
-        let cmd_list = c
-          .iter()
-          .fold("".to_string(), |mut a, c| {
-            let s = format!("{}\n", c.name);
-            a.push_str(&s);
-            a
-          });
+        let cmd_list = c.iter().fold("".to_string(), |mut a, c| {
+          let s = format!("{}\n", c.name);
+          a.push_str(&s);
+          a
+        });
         info!("Added commands for Guild({}):\n{}", guild, cmd_list)
-      },
-      Err(e) => panic!("Couldn't set application commands: {:#?}", e)
+      }
+      Err(e) => panic!("Couldn't set application commands: {:#?}", e),
     }
-    
-    
   } else {
     unimplemented!("Global commands")
   }
@@ -80,19 +70,20 @@ fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicat
 pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) {
   let name = command.data.name.clone();
   let user = command.user.clone();
-  match command.create_interaction_response(&ctx.http, |response| {
-    response
-      .kind(InteractionResponseType::DeferredChannelMessageWithSource)
-      .interaction_response_data(|message| {
-        message.content("Loading".to_string())
-      })
-  }).await {
+  match command
+    .create_interaction_response(&ctx.http, |response| {
+      response
+        .kind(InteractionResponseType::DeferredChannelMessageWithSource)
+        .interaction_response_data(|message| message.content("Loading".to_string()))
+    })
+    .await
+  {
     Ok(_) => info!("{} command deferred", name),
-    Err(e) => error!("Error deferring command {}: {}",name , e),
+    Err(e) => error!("Error deferring command {}: {}", name, e),
   }
 
   let command_copy = command.clone();
-  let result = match name.as_str(){
+  let result = match name.as_str() {
     "join" => cmd::Join::execute(ctx, command_copy),
     "leave" => cmd::Leave::execute(ctx, command_copy),
     "play" => cmd::Play::execute(ctx, command_copy),
@@ -104,50 +95,51 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
     "me" => cmd::Me::execute(ctx, command_copy),
     "info" => cmd::Info::execute(ctx, command_copy),
     "eval" => cmd::Eval::execute(ctx, command_copy),
-    _ => Box::pin(text_response(ctx, command_copy, "Invalid command"))
+    _ => Box::pin(text_response(ctx, command_copy, "Invalid command")),
   };
 
   match tokio::time::timeout(COMMAND_TIMEOUT, result).await {
     Ok(result) => {
       if let Err(e) = result {
         error!("Couldn't respond to command: {}", e);
-        error!("{user} failed running command {cmd}", 
+        error!(
+          "{user} failed running command {cmd}",
           user = user.tag(),
           cmd = name
         )
       } else {
-        info!("{user} ran command {cmd}", 
-          user = user.tag(),
-          cmd = name
-        )
+        info!("{user} ran command {cmd}", user = user.tag(), cmd = name)
       }
-    },
+    }
     Err(e) => {
       error!("Couldn't respond to command: {}", e);
-      error!("{user} failed running command {cmd}", 
+      error!(
+        "{user} failed running command {cmd}",
         user = user.tag(),
         cmd = name
       );
-      text_response(ctx, command, "Took too long processing command").await.unwrap_or(());
+      text_response(ctx, command, "Took too long processing command")
+        .await
+        .unwrap_or(());
     }
   }
 }
 
-
-pub async fn text_response<D>(ctx: &Context, command: ApplicationCommandInteraction, text: D) -> Result<(), Error>
-where D: ToString, {
+pub async fn text_response<D>(
+  ctx: &Context,
+  command: ApplicationCommandInteraction,
+  text: D,
+) -> Result<(), Error>
+where
+  D: ToString,
+{
   match command
     .edit_original_interaction_response(&ctx.http, |response| {
-      response
-        .embed(|embed| {
-          embed
-            .title(text)
-            .colour(EMBED_COLOUR)
-        })
-    }).await
-    {
-      Ok(_) => Ok(()),
-      Err(e) => Err(e),
-    }
+      response.embed(|embed| embed.title(text).colour(EMBED_COLOUR))
+    })
+    .await
+  {
+    Ok(_) => Ok(()),
+    Err(e) => Err(e),
+  }
 }
-
