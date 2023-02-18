@@ -1,7 +1,7 @@
 use crate::constants;
-use tracing::{info, error};
 use serenity::{model::id::GuildId, prelude::TypeMapKey};
 use std::sync::Arc;
+use tracing::{error, info};
 
 pub struct ConfigStorage;
 
@@ -25,24 +25,22 @@ pub fn read_config() -> Config {
   }
 
   let token = std::env::var("TOKEN").expect("Missing bot token in .env");
-  
+
   let application_id = std::env::var("APP_ID")
     .expect("APP_ID missing from .env")
     .parse()
     .expect("Invalid APP_ID");
 
   let guild_id = match std::env::var("GUILD_ID") {
-    Ok(id) => {
-      match id.parse::<u64>() {
-        Ok(g) => {
-          info!("Registering commands on GUILD_ID({})", g);
-          Some(GuildId(g))
-        },
-        Err(e) => {
-          error!("Error parsing GUILD_ID({}), registering globally", id);
-          error!("ParseError: {:?}", e);
-          None
-        }
+    Ok(id) => match id.parse::<u64>() {
+      Ok(g) => {
+        info!("Registering commands on GUILD_ID({})", g);
+        Some(GuildId(g))
+      }
+      Err(e) => {
+        error!("Error parsing GUILD_ID({}), registering globally", id);
+        error!("ParseError: {:?}", e);
+        None
       }
     },
     Err(_e) => {
@@ -51,9 +49,9 @@ pub fn read_config() -> Config {
     }
   };
 
-  return Config {
+  Config {
     token,
     application_id,
-    guild_id
+    guild_id,
   }
 }

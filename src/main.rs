@@ -1,32 +1,23 @@
 use serenity::async_trait;
-use serenity::client::{
-  Client, Context, EventHandler
-};
-use serenity::model::{
-  prelude::*,
-  gateway::Activity,
-  application::interaction::Interaction
-};
+use serenity::client::{Client, Context, EventHandler};
+use serenity::model::{application::interaction::Interaction, gateway::Activity, prelude::*};
 use songbird::SerenityInit;
-use tracing::{info, error};
 use std::sync::Arc;
+use tracing::{error, info};
 
+mod commands;
 mod config;
 mod constants;
-mod commands;
-
 
 struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
-
   async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
     if let Interaction::ApplicationCommand(command) = interaction {
       commands::handle_commands(&ctx, command.clone()).await;
     }
   }
-
 
   async fn ready(&self, ctx: Context, ready: Ready) {
     let activity = Activity::playing("with 🍊");
@@ -44,16 +35,16 @@ async fn main() {
   info!("Tracing initialised");
   let config = config::read_config();
   info!("Config read");
-  let intents = GatewayIntents::empty() | 
-                                GatewayIntents::GUILDS | 
-                                GatewayIntents::GUILD_MESSAGES |
-                                GatewayIntents::GUILD_VOICE_STATES;
+  let intents = GatewayIntents::empty()
+    | GatewayIntents::GUILDS
+    | GatewayIntents::GUILD_MESSAGES
+    | GatewayIntents::GUILD_VOICE_STATES;
 
   info!("Intents: {:?}", intents);
 
   let mut client = Client::builder(config.token.clone(), intents)
     .event_handler(Handler)
-    .application_id(config.application_id.clone())
+    .application_id(config.application_id)
     .register_songbird()
     .await
     .expect("Error creating client");
@@ -63,7 +54,7 @@ async fn main() {
     let mut data = client.data.write().await;
     data.insert::<ConfigStorage>(Arc::new(config));
   }
-  
+
   if let Err(e) = client.start().await {
     error!("Client error: {:?}", e)
   }
