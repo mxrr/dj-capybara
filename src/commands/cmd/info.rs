@@ -56,7 +56,9 @@ impl Command for Info {
       (user.name.clone(), user.face())
     };
 
-    let join_time = chrono::NaiveDateTime::from_timestamp(user.created_at().unix_timestamp(), 0);
+    let join_time =
+      chrono::NaiveDateTime::from_timestamp_opt(user.created_at().unix_timestamp(), 0)
+        .unwrap_or_default();
     let join_time_string = join_time.format("%d %B %Y, %H:%M:%S").to_string();
 
     let user_colour = user.accent_colour.unwrap_or(EMBED_COLOUR);
