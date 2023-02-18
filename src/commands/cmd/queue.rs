@@ -43,7 +43,7 @@ impl Command for Queue {
 
     let handler = handler_lock.lock().await;
 
-    if handler.queue().len() > 0 {
+    if !handler.queue().is_empty() {
       let queue = handler.queue().current_queue();
       let (count, duration) = get_queue_length_and_duration(&queue);
 

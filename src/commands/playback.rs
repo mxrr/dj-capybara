@@ -78,11 +78,11 @@ impl SongMetadata {
   pub fn from_handle(handle: TrackHandle) -> Self {
     let metadata = handle.metadata();
 
-    let thumbnail = metadata.thumbnail.clone().unwrap_or(placeholder_img());
+    let thumbnail = metadata.thumbnail.clone().unwrap_or_else(placeholder_img);
 
-    let title = metadata.title.clone().unwrap_or("N/A".to_string());
+    let title = metadata.title.clone().unwrap_or_else(|| "N/A".to_string());
 
-    let duration = metadata.duration.clone().unwrap_or_default();
+    let duration = metadata.duration.unwrap_or_default();
 
     let url = metadata.source_url.clone();
 
@@ -119,7 +119,7 @@ pub fn get_queue_length_and_duration(queue: &Vec<TrackHandle>) -> (usize, Durati
   (queue.len(), get_queue_duration(queue))
 }
 
-pub fn get_queue_duration(queue: &Vec<TrackHandle>) -> Duration {
+pub fn get_queue_duration(queue: &[TrackHandle]) -> Duration {
   queue.iter().fold(Duration::from_secs(0), |a, c| {
     let d = c.metadata().duration.unwrap_or(Duration::from_secs(0));
     a + d

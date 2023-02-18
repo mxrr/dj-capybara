@@ -64,7 +64,7 @@ impl Command for Seek {
 
     let handler = handler_lock.lock().await;
 
-    if handler.queue().len() > 0 {
+    if !handler.queue().is_empty() {
       let current = match handler.queue().current() {
         Some(t) => t,
         None => return text_response(ctx, command, "Nothing playing").await,

@@ -44,7 +44,7 @@ async fn main() {
 
   let mut client = Client::builder(config.token.clone(), intents)
     .event_handler(Handler)
-    .application_id(config.application_id.clone())
+    .application_id(config.application_id)
     .register_songbird()
     .await
     .expect("Error creating client");

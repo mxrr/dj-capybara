@@ -49,9 +49,9 @@ pub fn read_config() -> Config {
     }
   };
 
-  return Config {
+  Config {
     token,
     application_id,
     guild_id,
-  };
+  }
 }

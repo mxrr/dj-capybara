@@ -16,10 +16,7 @@ pub struct Info;
 impl Command for Info {
   async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
     let option = match command.data.options.get(0) {
-      Some(o) => match o.resolved.as_ref() {
-        Some(opt_val) => Some(opt_val.clone()),
-        None => None,
-      },
+      Some(o) => o.resolved.as_ref().cloned(),
       None => None,
     };
 
@@ -49,7 +46,7 @@ impl Command for Info {
         }
         Ok(member) => (
           member.display_name().into_owned(),
-          member.avatar_url().unwrap_or(user.face()),
+          member.avatar_url().unwrap_or_else(|| user.face()),
         ),
       }
     } else {

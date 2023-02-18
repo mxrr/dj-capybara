@@ -44,7 +44,7 @@ impl Command for Skip {
 
     let handler = handler_lock.lock().await;
 
-    if handler.queue().len() > 0 {
+    if !handler.queue().is_empty() {
       let current = match handler.queue().current() {
         Some(t) => t,
         None => return text_response(ctx, command, "Nothing to skip").await,
@@ -60,7 +60,7 @@ impl Command for Skip {
             .metadata()
             .title
             .clone()
-            .unwrap_or("N/A".to_string());
+            .unwrap_or_else(|| "N/A".to_string());
 
           let length = format_duration_live(
             current

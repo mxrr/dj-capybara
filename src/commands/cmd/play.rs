@@ -120,7 +120,7 @@ impl Command for Play {
         .user
         .nick_in(&ctx.http, guild_id)
         .await
-        .unwrap_or(command.user.tag()),
+        .unwrap_or_else(|| command.user.tag()),
     );
 
     match command
