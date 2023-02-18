@@ -19,7 +19,7 @@ features = [
 ]
 
 [dependencies]
-songbird = { version = "0.3.0", features = ["builtin-queue"] }
+songbird = { git = "https://github.com/kareigu/songbird", features = ["builtin-queue", "yt-dlp"] }
 dotenv = "0.15.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
