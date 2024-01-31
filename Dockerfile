@@ -33,6 +33,5 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 RUN chmod a+rx /usr/local/bin/yt-dlp
 
 COPY --from=rust_builder /usr/src/capybara/target/release/capybara ./capybara
-COPY .env ./.env
 
 CMD ./capybara
