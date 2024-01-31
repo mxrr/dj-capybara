@@ -1,51 +1,59 @@
 use crate::commands::{text_response, utils::remove_md_characters, Command};
 use crate::constants::EMBED_COLOUR;
-use serenity::async_trait;
-use serenity::builder::CreateApplicationCommand;
-use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-  ApplicationCommandInteraction, CommandDataOptionValue,
+use serenity::{
+  all::ResolvedValue,
+  async_trait,
+  builder::{
+    CreateCommand, CreateCommandOption, CreateEmbed, CreateEmbedFooter, EditInteractionResponse,
+  },
+  client::Context,
+  model::application::{CommandInteraction, CommandOptionType},
+  Error,
 };
-use serenity::model::prelude::command::CommandOptionType;
-use serenity::Error;
 use tracing::error;
 
 pub struct Info;
 
+const USER_OPTION_NAME: &str = "user";
+
 #[async_trait]
 impl Command for Info {
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    let option = match command.data.options.get(0) {
-      Some(o) => o.resolved.as_ref().cloned(),
-      None => None,
-    };
+  async fn execute(ctx: &Context, command: &CommandInteraction) -> Result<(), Error> {
+    let option = command
+      .data
+      .options()
+      .iter()
+      .find(|e| e.name == USER_OPTION_NAME)
+      .map(|o| o.to_owned());
 
-    let user = match option {
+    let user_id = match option {
       Some(o) => {
-        if let CommandDataOptionValue::User(user, _) = o {
-          match ctx.http.get_user(user.id.0).await {
-            Err(e) => {
-              error!("Couldn't fetch user {}", e);
-              user
-            }
-            Ok(u) => u,
-          }
+        if let ResolvedValue::User(user, _) = o.value {
+          user.id
         } else {
           error!("Invalid user provided");
           return text_response(ctx, command, "Invalid user provided").await;
         }
       }
-      None => command.user.clone(),
+      None => command.user.id,
+    };
+
+    let user = match ctx.http.get_user(user_id).await {
+      Err(e) => {
+        error!("Couldn't fetch user {}", e);
+        return text_response(ctx, command, "Couldn't fetch user").await;
+      }
+      Ok(u) => u,
     };
 
     let (nick, avatar) = if let Some(guild_id) = command.guild_id {
-      match ctx.http.get_member(guild_id.0, user.id.0).await {
+      match ctx.http.get_member(guild_id, user.id).await {
         Err(e) => {
           error!("Couldn't fetch member {}", e);
           (user.name.clone(), user.face())
         }
         Ok(member) => (
-          member.display_name().into_owned(),
+          member.display_name().to_string(),
           member.avatar_url().unwrap_or_else(|| user.face()),
         ),
       }
@@ -63,15 +71,16 @@ impl Command for Info {
     let banner_url = user.banner_url().unwrap_or_default();
 
     match command
-      .edit_original_interaction_response(&ctx.http, |response| {
-        response.embed(|embed| {
-          embed
+      .edit_response(
+        &ctx.http,
+        EditInteractionResponse::new().embed(
+          CreateEmbed::new()
             .title(remove_md_characters(nick))
             .image(banner_url)
             .thumbnail(avatar)
             .colour(user_colour)
             .fields(vec![
-              ("User", user.tag(), true),
+              ("User", user.name, true),
               ("Joined at", join_time_string, true),
               (
                 "Is a bot?",
@@ -83,9 +92,9 @@ impl Command for Info {
                 false,
               ),
             ])
-            .footer(|footer| footer.text(format!("UserID: {}", user.id)))
-        })
-      })
+            .footer(CreateEmbedFooter::new(format!("UserID: {}", user.id))),
+        ),
+      )
       .await
     {
       Ok(_m) => Ok(()),
@@ -93,16 +102,20 @@ impl Command for Info {
     }
   }
 
-  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    command
-      .name("info")
+  fn name() -> &'static str {
+    "info"
+  }
+
+  fn info() -> CreateCommand {
+    CreateCommand::new(Self::name())
       .description("View info on your own or someone else's Discord user")
-      .create_option(|option| {
-        option
-          .name("user")
-          .description("User you want to view info on, defaults your own user")
-          .kind(CommandOptionType::User)
-          .required(false)
-      })
+      .add_option(
+        CreateCommandOption::new(
+          CommandOptionType::User,
+          USER_OPTION_NAME,
+          "User you want to view info on, defaults your own user",
+        )
+        .required(false),
+      )
   }
 }

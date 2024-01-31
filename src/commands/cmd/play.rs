@@ -3,61 +3,70 @@ use std::sync::Arc;
 use crate::commands::{
   playback::{
     format_duration, format_duration_live, get_queue_length_and_duration, get_source, SongMetadata,
-    VOIPData,
+    SongMetadataKey, VOIPData,
   },
   text_response,
   utils::remove_md_characters,
   Command,
 };
 use crate::constants::EMBED_COLOUR;
-use serenity::builder::CreateApplicationCommand;
-use serenity::client::Context;
-use serenity::model::application::component::ButtonStyle;
-use serenity::model::application::interaction::application_command::{
-  ApplicationCommandInteraction, CommandDataOptionValue,
-};
-use serenity::model::prelude::command::CommandOptionType;
-use serenity::Error;
 use serenity::{
+  all::ResolvedValue,
   async_trait,
+  builder::{
+    CreateActionRow, CreateButton, CreateCommand, CreateCommandOption, CreateEmbed,
+    CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, EditInteractionResponse,
+  },
+  client::Context,
+  model::application::{CommandInteraction, CommandOptionType},
   model::id::{ChannelId, GuildId},
   prelude::Mutex,
+  Error,
 };
 use songbird::{events::Event, Call, EventContext, EventHandler, Songbird, TrackEvent};
 use tracing::error;
 
 pub struct Play;
 
+const PARAM_OPTION_NAME: &str = "search";
+
 #[async_trait]
 impl Command for Play {
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    let option = match command.data.options.get(0) {
-      Some(o) => match o.resolved.as_ref() {
-        Some(opt_val) => opt_val.clone(),
-        None => {
-          error!("No options provided");
+  async fn execute(ctx: &Context, command: &CommandInteraction) -> Result<(), Error> {
+    let param = match command
+      .data
+      .options()
+      .iter()
+      .find(|o| o.name == PARAM_OPTION_NAME)
+    {
+      Some(o) => {
+        if let ResolvedValue::String(s) = o.value {
+          s.to_string()
+        } else {
+          error!("Invalid search option provided");
           return text_response(ctx, command, "No search term or URL in request").await;
         }
-      },
+      }
       None => {
         error!("No options provided");
         return text_response(ctx, command, "No search term or URL in request").await;
       }
     };
 
-    let param = if let CommandDataOptionValue::String(s) = option {
-      s
-    } else {
-      error!("Empty URL provided");
-      return text_response(ctx, command, "No search term or URL in request").await;
-    };
-
-    let voip_data = match VOIPData::from(ctx, &command).await {
+    let voip_data = match VOIPData::from(ctx, command).await {
       Ok(v) => v,
       Err(s) => return text_response(ctx, command, s).await,
     };
 
     let guild_id = voip_data.guild_id;
+
+    let http_client = {
+      let data = ctx.data.read().await;
+      data
+        .get::<crate::constants::HttpKey>()
+        .cloned()
+        .expect("HttpClient did not exist")
+    };
 
     let manager = match songbird::get(ctx).await {
       Some(arc) => arc.clone(),
@@ -84,36 +93,51 @@ impl Command for Play {
       },
     };
 
-    let source = match get_source(param).await {
-      Ok(s) => s,
-      Err(s) => return text_response(ctx, command, s).await,
-    };
+    let mut source = get_source(http_client, param);
+    let metadata = SongMetadata::from_source(&mut source).await;
 
     let mut handler = handler_lock.lock().await;
 
-    let (track, handle) = songbird::tracks::create_player(source);
+    let handle = handler.enqueue_input(source.into()).await;
+    {
+      let mut data = handle.typemap().write().await;
+      data.insert::<SongMetadataKey>(metadata.clone());
+    }
     match handle.add_event(
-      Event::Track(TrackEvent::Play),
-      SongStart {
-        channel_id: command.channel_id,
-        guild_id,
+      Event::Track(TrackEvent::Error),
+      SongError {
         ctx: ctx.clone(),
+        command: command.clone(),
       },
     ) {
       Ok(_) => (),
-      Err(e) => error!("Error adding track event: {}", e),
+      Err(e) => error!("Error adding SongError event: {}", e),
     }
-
-    let metadata = SongMetadata::from_handle(handle);
-    let url = metadata.url.clone().unwrap_or_default();
-    let embed_title = match handler.queue().is_empty() {
+    let embed_title = match handler.queue().len() == 1 {
       true => "Playing",
       false => "Added to queue",
     };
 
-    handler.enqueue(track);
+    if handler.queue().is_empty() {
+      return text_response(ctx, command, "Error playing song").await;
+    }
 
-    let (count, duration) = get_queue_length_and_duration(&handler.queue().current_queue());
+    if handler.queue().len() > 1 {
+      match handle.add_event(
+        Event::Track(TrackEvent::Play),
+        SongStart {
+          channel_id: command.channel_id,
+          guild_id,
+          ctx: ctx.clone(),
+        },
+      ) {
+        Ok(_) => (),
+        Err(e) => error!("Error adding SongStart event: {}", e),
+      }
+    }
+
+    let url = metadata.url.clone().unwrap_or_default();
+    let (count, duration) = get_queue_length_and_duration(&handler.queue().current_queue()).await;
 
     let user_nick = remove_md_characters(
       command
@@ -124,41 +148,33 @@ impl Command for Play {
     );
 
     match command
-      .edit_original_interaction_response(&ctx.http, |response| {
-        response
-          .embed(|embed| {
-            embed
+      .edit_response(
+        &ctx.http,
+        EditInteractionResponse::new()
+          .embed(
+            CreateEmbed::new()
               .title(embed_title)
               .image(metadata.thumbnail)
-              .author(|author| author.name(user_nick).icon_url(command.user.face()))
+              .author(CreateEmbedAuthor::new(user_nick).icon_url(command.user.face()))
               .colour(EMBED_COLOUR)
               .fields(vec![
                 ("Track", remove_md_characters(metadata.title.clone()), true),
                 (
                   "Duration",
-                  format_duration_live(metadata.duration, metadata.title).0,
+                  format_duration_live(metadata.duration, &metadata.title).to_string(),
                   true,
                 ),
               ])
-              .footer(|footer| {
-                footer.text(format!(
-                  "{} songs in queue - {}",
-                  count,
-                  format_duration(duration)
-                ))
-              })
-          })
-          .components(|components| {
-            components.create_action_row(|row| {
-              row.create_button(|button| {
-                button
-                  .style(ButtonStyle::Link)
-                  .label("Open in browser")
-                  .url(url)
-              })
-            })
-          })
-      })
+              .footer(CreateEmbedFooter::new(format!(
+                "{} songs in queue - {}",
+                count,
+                format_duration(duration)
+              ))),
+          )
+          .components(vec![CreateActionRow::Buttons(vec![
+            CreateButton::new_link(url).label("Open in browser"),
+          ])]),
+      )
       .await
     {
       Ok(_m) => Ok(()),
@@ -166,17 +182,21 @@ impl Command for Play {
     }
   }
 
-  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    command
-      .name("play")
+  fn name() -> &'static str {
+    "play"
+  }
+
+  fn info() -> CreateCommand {
+    CreateCommand::new(Self::name())
       .description("Play a YouTube video or any music/video file")
-      .create_option(|option| {
-        option
-          .name("search")
-          .description("Search term or a link to a YouTube video or a file")
-          .kind(CommandOptionType::String)
-          .required(true)
-      })
+      .add_option(
+        CreateCommandOption::new(
+          CommandOptionType::String,
+          PARAM_OPTION_NAME,
+          "Search term or a link to a Youtube video or a file",
+        )
+        .required(true),
+      )
   }
 }
 
@@ -196,7 +216,7 @@ impl EventHandler for SongStart {
       return Some(Event::Cancel);
     };
 
-    let metadata = SongMetadata::from_handle(handle.clone());
+    let metadata = SongMetadata::from_handle(handle).await;
 
     let manager = match songbird::get(&self.ctx).await {
       Some(arc) => arc.clone(),
@@ -216,17 +236,18 @@ impl EventHandler for SongStart {
 
     let handler = handler_lock.lock().await;
 
-    let (count, duration) = get_queue_length_and_duration(&handler.queue().current_queue());
+    let (count, duration) = get_queue_length_and_duration(&handler.queue().current_queue()).await;
 
     drop(handler);
     let url = metadata.url.clone().unwrap_or_default();
 
     match self
       .channel_id
-      .send_message(&self.ctx.http, |message| {
-        message
-          .embed(|embed| {
-            embed
+      .send_message(
+        &self.ctx.http,
+        CreateMessage::new()
+          .embed(
+            CreateEmbed::new()
               .title("Playing")
               .colour(EMBED_COLOUR)
               .image(metadata.thumbnail)
@@ -234,29 +255,20 @@ impl EventHandler for SongStart {
                 ("Track", remove_md_characters(metadata.title.clone()), true),
                 (
                   "Duration",
-                  format_duration_live(metadata.duration, metadata.title).0,
+                  format_duration_live(metadata.duration, &metadata.title).to_string(),
                   true,
                 ),
               ])
-              .footer(|footer| {
-                footer.text(format!(
-                  "{} songs in queue - {}",
-                  count,
-                  format_duration(duration)
-                ))
-              })
-          })
-          .components(|components| {
-            components.create_action_row(|row| {
-              row.create_button(|button| {
-                button
-                  .style(ButtonStyle::Link)
-                  .label("Open in browser")
-                  .url(url)
-              })
-            })
-          })
-      })
+              .footer(CreateEmbedFooter::new(format!(
+                "{} songs in queue - {}",
+                count,
+                format_duration(duration)
+              ))),
+          )
+          .components(vec![CreateActionRow::Buttons(vec![
+            CreateButton::new_link(url).label("Open in browser"),
+          ])]),
+      )
       .await
     {
       Ok(_o) => return None,
@@ -268,13 +280,31 @@ impl EventHandler for SongStart {
   }
 }
 
+struct SongError {
+  pub command: CommandInteraction,
+  pub ctx: Context,
+}
+
+#[async_trait]
+impl EventHandler for SongError {
+  async fn act(&self, _ctx: &EventContext<'_>) -> Option<Event> {
+    match text_response(&self.ctx, &self.command, "Error playing song").await {
+      Ok(_) => None,
+      Err(e) => {
+        error!("Failed editing error response: {}", e);
+        None
+      }
+    }
+  }
+}
+
 async fn join_channel(
   manager: Arc<Songbird>,
   voip_data: VOIPData,
 ) -> Result<Arc<Mutex<Call>>, String> {
   let join = manager.join(voip_data.guild_id, voip_data.channel_id).await;
-  match join.1 {
-    Ok(_) => Ok(join.0),
+  match join {
+    Ok(j) => Ok(j),
     Err(e) => {
       error!("Error joining voice channel: {}", e);
       Err("Not in a voice channel".to_string())

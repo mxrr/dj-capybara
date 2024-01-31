@@ -1,5 +1,8 @@
 use crate::constants;
-use serenity::{model::id::GuildId, prelude::TypeMapKey};
+use serenity::{
+  model::id::{ApplicationId, GuildId},
+  prelude::TypeMapKey,
+};
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -11,7 +14,7 @@ impl TypeMapKey for ConfigStorage {
 
 pub struct Config {
   pub token: String,
-  pub application_id: u64,
+  pub application_id: ApplicationId,
   pub guild_id: Option<GuildId>,
 }
 
@@ -35,7 +38,7 @@ pub fn read_config() -> Config {
     Ok(id) => match id.parse::<u64>() {
       Ok(g) => {
         info!("Registering commands on GUILD_ID({})", g);
-        Some(GuildId(g))
+        Some(GuildId::new(g))
       }
       Err(e) => {
         error!("Error parsing GUILD_ID({}), registering globally", id);

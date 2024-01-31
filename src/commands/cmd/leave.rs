@@ -1,9 +1,9 @@
 use crate::commands::text_response;
 use crate::commands::{playback::VOIPData, Command};
 use serenity::async_trait;
-use serenity::builder::CreateApplicationCommand;
+use serenity::builder::CreateCommand;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
+use serenity::model::application::CommandInteraction;
 use serenity::Error;
 use tracing::error;
 
@@ -11,8 +11,8 @@ pub struct Leave;
 
 #[async_trait]
 impl Command for Leave {
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    let voip_data = match VOIPData::from(ctx, &command).await {
+  async fn execute(ctx: &Context, command: &CommandInteraction) -> Result<(), Error> {
+    let voip_data = match VOIPData::from(ctx, command).await {
       Ok(v) => v,
       Err(s) => return text_response(ctx, command, s).await,
     };
@@ -45,7 +45,11 @@ impl Command for Leave {
     }
   }
 
-  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    command.name("leave").description("Leave voice channel")
+  fn name() -> &'static str {
+    "leave"
+  }
+
+  fn info() -> CreateCommand {
+    CreateCommand::new(Self::name()).description("Leave voice channel")
   }
 }

@@ -1,22 +1,24 @@
 use crate::commands::{
-  playback::{format_duration_live, VOIPData},
+  playback::{format_duration_live, SongMetadata, VOIPData},
   text_response, Command,
 };
 use crate::constants::EMBED_COLOUR;
-use serenity::async_trait;
-use serenity::builder::CreateApplicationCommand;
+use serenity::builder::CreateCommand;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
+use serenity::model::application::CommandInteraction;
 use serenity::Error;
-use std::time::Duration;
+use serenity::{
+  async_trait,
+  builder::{CreateEmbed, EditInteractionResponse},
+};
 use tracing::error;
 
 pub struct Skip;
 
 #[async_trait]
 impl Command for Skip {
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    let voip_data = match VOIPData::from(ctx, &command).await {
+  async fn execute(ctx: &Context, command: &CommandInteraction) -> Result<(), Error> {
+    let voip_data = match VOIPData::from(ctx, command).await {
       Ok(v) => v,
       Err(s) => return text_response(ctx, command, s).await,
     };
@@ -56,30 +58,24 @@ impl Command for Skip {
           text_response(ctx, command, "Nothing to skip").await
         }
         Ok(_) => {
-          let title = current
-            .metadata()
-            .title
-            .clone()
-            .unwrap_or_else(|| "N/A".to_string());
+          let metadata = SongMetadata::from_handle(&current).await;
+          let title = metadata.title.clone();
 
-          let length = format_duration_live(
-            current
-              .metadata()
-              .duration
-              .unwrap_or(Duration::from_secs(0)),
-            title.clone(),
-          )
-          .0;
+          let length = format_duration_live(metadata.duration, &title);
 
           match command
-            .edit_original_interaction_response(&ctx.http, |response| {
-              response.embed(|embed| {
-                embed
+            .edit_response(
+              &ctx.http,
+              EditInteractionResponse::new().embed(
+                CreateEmbed::new()
                   .title("Skipped")
                   .colour(EMBED_COLOUR)
-                  .fields(vec![("Track", title, true), ("Length", length, true)])
-              })
-            })
+                  .fields(vec![
+                    ("Track", title, true),
+                    ("Length", length.to_string(), true),
+                  ]),
+              ),
+            )
             .await
           {
             Ok(_m) => Ok(()),
@@ -92,9 +88,11 @@ impl Command for Skip {
     }
   }
 
-  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    command
-      .name("skip")
-      .description("Skip the currently playing song")
+  fn name() -> &'static str {
+    "skip"
+  }
+
+  fn info() -> CreateCommand {
+    CreateCommand::new(Self::name()).description("Skip the currently playing song")
   }
 }
