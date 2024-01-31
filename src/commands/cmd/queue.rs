@@ -7,11 +7,11 @@ use crate::commands::{
   Command,
 };
 use crate::constants::EMBED_COLOUR;
-use serenity::async_trait;
-use serenity::builder::CreateApplicationCommand;
+use serenity::builder::{CreateCommand, CreateEmbedFooter, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
+use serenity::model::application::CommandInteraction;
 use serenity::Error;
+use serenity::{async_trait, builder::CreateEmbed};
 use songbird::tracks::TrackHandle;
 use std::time::Duration;
 use tracing::error;
@@ -20,8 +20,8 @@ pub struct Queue;
 
 #[async_trait]
 impl Command for Queue {
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    let voip_data = match VOIPData::from(ctx, &command).await {
+  async fn execute(ctx: &Context, command: &CommandInteraction) -> Result<(), Error> {
+    let voip_data = match VOIPData::from(ctx, command).await {
       Ok(v) => v,
       Err(s) => return text_response(ctx, command, s).await,
     };
@@ -45,9 +45,9 @@ impl Command for Queue {
 
     if !handler.queue().is_empty() {
       let queue = handler.queue().current_queue();
-      let (count, duration) = get_queue_length_and_duration(&queue);
+      let (count, duration) = get_queue_length_and_duration(&queue).await;
 
-      let current_metadata = SongMetadata::from_handle(queue[0].clone());
+      let current_metadata = SongMetadata::from_handle(&queue[0]).await;
 
       let current_position = match queue[0].get_info().await {
         Ok(state) => state.position,
@@ -57,26 +57,21 @@ impl Command for Queue {
         }
       };
 
-      let (current_song_duration, mut live) =
-        format_duration_live(current_metadata.duration, current_metadata.title.clone());
+      let current_song_duration =
+        format_duration_live(current_metadata.duration, &current_metadata.title);
+      let mut live = bool::from(&current_song_duration);
 
       let current_song_info = format!(
         "{} \n**[ {} / {} ]**",
         format_with_url(
-          remove_md_characters(if current_metadata.title.len() > 70 {
-            let mut t = current_metadata.title.split_at(67).0.to_string();
-            t.push_str("...");
-            t
-          } else {
-            current_metadata.title.clone()
-          }),
-          current_metadata.url
+          remove_md_characters(truncate_unicode(&current_metadata.title, 67)),
+          current_metadata.url.as_ref()
         ),
         format_duration(current_position),
         current_song_duration,
       );
 
-      let queue_f = format_queue_string(queue);
+      let queue_f = format_queue_string(queue).await;
 
       live = queue_f.3 || live;
 
@@ -100,15 +95,19 @@ impl Command for Queue {
       };
 
       match command
-        .edit_original_interaction_response(&ctx.http, |response| {
-          response.embed(|embed| {
-            embed
+        .edit_response(
+          &ctx.http,
+          EditInteractionResponse::new().embed(
+            CreateEmbed::new()
               .title("Queue")
               .colour(EMBED_COLOUR)
               .fields(fields)
-              .footer(|footer| footer.text(format!("{} songs in queue - {}", count, time_left)))
-          })
-        })
+              .footer(CreateEmbedFooter::new(format!(
+                "{} songs in queue - {}",
+                count, time_left
+              ))),
+          ),
+        )
         .await
       {
         Ok(_m) => Ok(()),
@@ -119,14 +118,16 @@ impl Command for Queue {
     }
   }
 
-  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    command
-      .name("queue")
-      .description("View currently queued songs")
+  fn name() -> &'static str {
+    "queue"
+  }
+
+  fn info() -> CreateCommand {
+    CreateCommand::new(Self::name()).description("View currently queued songs")
   }
 }
 
-fn format_with_url(title: String, url: Option<String>) -> String {
+fn format_with_url(title: String, url: Option<&String>) -> String {
   if let Some(link) = url {
     format!("[{}]({})", title, link)
   } else {
@@ -134,36 +135,36 @@ fn format_with_url(title: String, url: Option<String>) -> String {
   }
 }
 
-fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String, bool) {
+fn truncate_unicode(text: &str, max_chars: usize) -> String {
+  match text.char_indices().nth(max_chars) {
+    None => text.to_string(),
+    Some((i, _)) => {
+      let mut valid_index = i;
+      while !text.is_char_boundary(valid_index) {
+        valid_index -= 1;
+      }
+      let trimmed = &text[..valid_index];
+      format!("{}...", trimmed)
+    }
+  }
+}
+
+async fn format_queue_string(queue: Vec<TrackHandle>) -> (String, String, String, bool) {
   let mut pos_out = "".to_string();
   let mut title_out = "".to_string();
   let mut duration_out = "".to_string();
   let mut live = false;
-  for (i, t) in queue.iter().enumerate() {
-    if i > 4 {
-      break;
-    }
-    if i > 0 {
-      let metadata = SongMetadata::from_handle(t.clone());
-      let mut title = format_with_url(
-        remove_md_characters(if metadata.title.len() > 40 {
-          let mut t = metadata.title.split_at(37).0.to_string();
-          t.push_str("...");
-          t
-        } else {
-          metadata.title.clone()
-        }),
-        metadata.url,
-      );
-      title.shrink_to(16);
+  for (i, handle) in queue.iter().enumerate().skip(1).take(4) {
+    let metadata = SongMetadata::from_handle(handle).await;
+    let title_trimmed = truncate_unicode(&metadata.title, 37);
+    let title = format_with_url(remove_md_characters(title_trimmed), metadata.url.as_ref());
 
-      let dur = format_duration_live(metadata.duration, metadata.title);
-      live = dur.1 || live;
+    let duration = format_duration_live(metadata.duration, &metadata.title);
+    live = bool::from(&duration) || live;
 
-      pos_out.push_str(format!("#{} \n", i).as_str());
-      title_out.push_str(format!("{} \n", title).as_str());
-      duration_out.push_str(format!("{} \n", dur.0).as_str());
-    }
+    pos_out.push_str(format!("#{} \n", i).as_str());
+    title_out.push_str(format!("{} \n", title).as_str());
+    duration_out.push_str(format!("{} \n", duration).as_str());
   }
   (pos_out, title_out, duration_out, live)
 }

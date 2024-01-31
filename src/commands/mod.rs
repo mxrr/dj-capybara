@@ -1,13 +1,13 @@
 use crate::config::ConfigStorage;
 use crate::constants::EMBED_COLOUR;
-use serenity::async_trait;
-use serenity::builder::{CreateApplicationCommand, CreateApplicationCommands};
-use serenity::model::application::interaction::{
-  application_command::ApplicationCommandInteraction, InteractionResponseType,
-};
+use serenity::builder::CreateEmbed;
+use serenity::builder::CreateInteractionResponseMessage;
+use serenity::builder::EditInteractionResponse;
+use serenity::model::application::CommandInteraction;
 use serenity::model::prelude::Ready;
 use serenity::prelude::Context;
 use serenity::Error;
+use serenity::{async_trait, builder::CreateCommand};
 use tracing::{error, info};
 
 mod cmd;
@@ -18,8 +18,9 @@ static COMMAND_TIMEOUT: tokio::time::Duration = tokio::time::Duration::from_secs
 
 #[async_trait]
 trait Command {
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error>;
-  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand;
+  async fn execute(ctx: &Context, command: &CommandInteraction) -> Result<(), Error>;
+  fn info() -> CreateCommand;
+  fn name() -> &'static str;
 }
 
 pub async fn register_commands(ctx: &Context, _ready: &Ready) {
@@ -32,9 +33,7 @@ pub async fn register_commands(ctx: &Context, _ready: &Ready) {
   };
 
   if let Some(guild) = config_lock.guild_id {
-    let commands = guild
-      .set_application_commands(&ctx.http, command_list)
-      .await;
+    let commands = guild.set_commands(&ctx.http, command_list()).await;
 
     match commands {
       Ok(c) => {
@@ -52,50 +51,51 @@ pub async fn register_commands(ctx: &Context, _ready: &Ready) {
   }
 }
 
-fn command_list(commands: &mut CreateApplicationCommands) -> &mut CreateApplicationCommands {
-  commands
-    .create_application_command(cmd::Join::info)
-    .create_application_command(cmd::Leave::info)
-    .create_application_command(cmd::Play::info)
-    .create_application_command(cmd::Capybara::info)
-    .create_application_command(cmd::Seek::info)
-    .create_application_command(cmd::Skip::info)
-    .create_application_command(cmd::Queue::info)
-    .create_application_command(cmd::Me::info)
-    .create_application_command(cmd::Info::info)
-    .create_application_command(cmd::Stop::info)
-    .create_application_command(cmd::Eval::info)
+fn command_list() -> Vec<CreateCommand> {
+  vec![
+    cmd::Join::info(),
+    cmd::Leave::info(),
+    cmd::Play::info(),
+    cmd::Capybara::info(),
+    cmd::Seek::info(),
+    cmd::Skip::info(),
+    cmd::Queue::info(),
+    cmd::Me::info(),
+    cmd::Info::info(),
+    cmd::Stop::info(),
+    cmd::Eval::info(),
+  ]
 }
 
-pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteraction) {
+pub async fn handle_commands(ctx: &Context, command: CommandInteraction) {
   let name = command.data.name.clone();
   let user = command.user.clone();
   match command
-    .create_interaction_response(&ctx.http, |response| {
-      response
-        .kind(InteractionResponseType::DeferredChannelMessageWithSource)
-        .interaction_response_data(|message| message.content("Loading".to_string()))
-    })
+    .create_response(
+      &ctx.http,
+      serenity::builder::CreateInteractionResponse::Defer(
+        CreateInteractionResponseMessage::new().content("Loading"),
+      ),
+    )
     .await
   {
     Ok(_) => info!("{} command deferred", name),
     Err(e) => error!("Error deferring command {}: {}", name, e),
   }
 
-  let command_copy = command.clone();
   let result = match name.as_str() {
-    "join" => cmd::Join::execute(ctx, command_copy),
-    "leave" => cmd::Leave::execute(ctx, command_copy),
-    "play" => cmd::Play::execute(ctx, command_copy),
-    "seek" => cmd::Seek::execute(ctx, command_copy),
-    "skip" => cmd::Skip::execute(ctx, command_copy),
-    "queue" => cmd::Queue::execute(ctx, command_copy),
-    "stop" => cmd::Stop::execute(ctx, command_copy),
-    "capybara" => cmd::Capybara::execute(ctx, command_copy),
-    "me" => cmd::Me::execute(ctx, command_copy),
-    "info" => cmd::Info::execute(ctx, command_copy),
-    "eval" => cmd::Eval::execute(ctx, command_copy),
-    _ => Box::pin(text_response(ctx, command_copy, "Invalid command")),
+    _ if name == cmd::Join::name() => cmd::Join::execute(ctx, &command),
+    _ if name == cmd::Leave::name() => cmd::Leave::execute(ctx, &command),
+    _ if name == cmd::Play::name() => cmd::Play::execute(ctx, &command),
+    _ if name == cmd::Seek::name() => cmd::Seek::execute(ctx, &command),
+    _ if name == cmd::Skip::name() => cmd::Skip::execute(ctx, &command),
+    _ if name == cmd::Queue::name() => cmd::Queue::execute(ctx, &command),
+    _ if name == cmd::Stop::name() => cmd::Stop::execute(ctx, &command),
+    _ if name == cmd::Capybara::name() => cmd::Capybara::execute(ctx, &command),
+    _ if name == cmd::Me::name() => cmd::Me::execute(ctx, &command),
+    _ if name == cmd::Info::name() => cmd::Info::execute(ctx, &command),
+    _ if name == cmd::Eval::name() => cmd::Eval::execute(ctx, &command),
+    _ => Box::pin(text_response(ctx, &command, "Invalid command")),
   };
 
   match tokio::time::timeout(COMMAND_TIMEOUT, result).await {
@@ -118,7 +118,7 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
         user = user.tag(),
         cmd = name
       );
-      text_response(ctx, command, "Took too long processing command")
+      text_response(ctx, &command, "Took too long processing command")
         .await
         .unwrap_or(());
     }
@@ -127,16 +127,17 @@ pub async fn handle_commands(ctx: &Context, command: ApplicationCommandInteracti
 
 pub async fn text_response<D>(
   ctx: &Context,
-  command: ApplicationCommandInteraction,
+  command: &CommandInteraction,
   text: D,
 ) -> Result<(), Error>
 where
-  D: ToString,
+  std::string::String: From<D>,
 {
   match command
-    .edit_original_interaction_response(&ctx.http, |response| {
-      response.embed(|embed| embed.title(text).colour(EMBED_COLOUR))
-    })
+    .edit_response(
+      &ctx.http,
+      EditInteractionResponse::new().embed(CreateEmbed::new().title(text).colour(EMBED_COLOUR)),
+    )
     .await
   {
     Ok(_) => Ok(()),

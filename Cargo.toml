@@ -1,12 +1,12 @@
 [package]
 name = "capybara"
-version = "0.5.1"
-edition = "2018"
+version = "0.6.0"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies.serenity]
-version = "0.11"
+version = "0.12"
 default-features = false
 features = [
   "cache", 
@@ -15,11 +15,16 @@ features = [
   "gateway", 
   "model", 
   "rustls_backend", 
-  "voice"
+  "voice",
+  "builder"
 ]
 
+[dependencies.symphonia]
+version = "0.5"
+features = ["aac", "mp3", "isomp4", "pcm", "mkv", "ogg", "wav"]
+
 [dependencies]
-songbird = { git = "https://github.com/kareigu/songbird", features = ["builtin-queue", "yt-dlp"] }
+songbird = { git = "https://github.com/serenity-rs/songbird", features = ["builtin-queue"] }
 dotenv = "0.15.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1"
@@ -27,3 +32,4 @@ tracing-subscriber = "0.3"
 chrono = "0.4.19"
 regex = "1.6"
 evalexpr = "8.1"
+reqwest = "0.11"

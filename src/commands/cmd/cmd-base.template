@@ -1,22 +1,22 @@
-use crate::commands::{Command, text_response};
+use crate::commands::{text_response, Command};
 use serenity::async_trait;
+use serenity::builder::{CreateCommand};
 use serenity::client::Context;
-use serenity::builder::{CreateApplicationCommand, CreateInteractionResponseData};
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
-use tracing::{info, error};
+use serenity::model::application::CommandInteraction;
 use serenity::Error;
 
-pub struct Cmd;
+pub struct Template;
 
 #[async_trait]
-impl Command for Cmd {
-
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-
+impl Command for Template {
+  async fn execute(ctx: &Context, command: &CommandInteraction) -> Result<(), Error> {
   }
 
-  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-
+  fn name() -> &'static str {
+    "template"
   }
 
+  fn info() -> CreateCommand {
+    CreateCommand::new(Self::name())
+  }
 }

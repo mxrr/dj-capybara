@@ -1,8 +1,8 @@
 use crate::commands::{playback::VOIPData, text_response, Command};
 use serenity::async_trait;
-use serenity::builder::CreateApplicationCommand;
+use serenity::builder::CreateCommand;
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
+use serenity::model::application::CommandInteraction;
 use serenity::Error;
 use tracing::error;
 
@@ -10,9 +10,9 @@ pub struct Join;
 
 #[async_trait]
 impl Command for Join {
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
+  async fn execute(ctx: &Context, command: &CommandInteraction) -> Result<(), Error> {
     let manager_f = songbird::get(ctx);
-    let voip_data = match VOIPData::from(ctx, &command).await {
+    let voip_data = match VOIPData::from(ctx, command).await {
       Ok(v) => v,
       Err(s) => return text_response(ctx, command, s).await,
     };
@@ -28,19 +28,24 @@ impl Command for Join {
       }
     };
 
-    let handler = manager.join(guild_id, channel_id).await;
+    let _handler = manager.join(guild_id, channel_id).await;
 
-    if let (Some(channel_name), _b) = (channel_id.name(&ctx.cache).await, handler.1.is_ok()) {
-      let name = channel_name.clone();
-      text_response(ctx, command, format!("Joined channel {}", &name)).await
-    } else {
-      return text_response(ctx, command, "Couldn't join channel").await;
+    match channel_id.name(&ctx.http).await {
+      Ok(channel_name) => {
+        text_response(ctx, command, format!("Joined channel {}", channel_name)).await
+      }
+      Err(e) => {
+        error!("Error getting channel_name: {}", e);
+        return text_response(ctx, command, "Couldn't join channel").await;
+      }
     }
   }
 
-  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    command
-      .name("join")
-      .description("Join current voice channel")
+  fn name() -> &'static str {
+    "join"
+  }
+
+  fn info() -> CreateCommand {
+    CreateCommand::new(Self::name()).description("Join current voice channel")
   }
 }

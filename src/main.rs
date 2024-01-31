@@ -1,6 +1,7 @@
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
-use serenity::model::{application::interaction::Interaction, gateway::Activity, prelude::*};
+use serenity::gateway::ActivityData;
+use serenity::model::{application::Interaction, prelude::*};
 use songbird::SerenityInit;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -14,18 +15,18 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
   async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-    if let Interaction::ApplicationCommand(command) = interaction {
-      commands::handle_commands(&ctx, command.clone()).await;
+    if let Interaction::Command(command) = interaction {
+      commands::handle_commands(&ctx, command).await;
     }
   }
 
   async fn ready(&self, ctx: Context, ready: Ready) {
-    let activity = Activity::playing("with 🍊");
-    ctx.set_activity(activity).await;
+    let activity = ActivityData::playing("with 🍊");
+    ctx.set_activity(Some(activity));
 
     commands::register_commands(&ctx, &ready).await;
 
-    info!("{}#{} running", ready.user.name, ready.user.discriminator);
+    info!("{}#{} running", ready.user.name, ready.user.id);
   }
 }
 
@@ -46,14 +47,10 @@ async fn main() {
     .event_handler(Handler)
     .application_id(config.application_id)
     .register_songbird()
+    .type_map_insert::<constants::HttpKey>(constants::HttpClient::new())
+    .type_map_insert::<config::ConfigStorage>(Arc::new(config))
     .await
     .expect("Error creating client");
-
-  {
-    use config::ConfigStorage;
-    let mut data = client.data.write().await;
-    data.insert::<ConfigStorage>(Arc::new(config));
-  }
 
   if let Err(e) = client.start().await {
     error!("Client error: {:?}", e)

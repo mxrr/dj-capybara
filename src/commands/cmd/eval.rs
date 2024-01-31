@@ -3,39 +3,37 @@ use crate::commands::{text_response, Command};
 use crate::constants::EMBED_COLOUR;
 use evalexpr::eval;
 use serenity::async_trait;
-use serenity::builder::CreateApplicationCommand;
+use serenity::builder::{CreateCommand, CreateCommandOption, CreateEmbed, EditInteractionResponse};
 use serenity::client::Context;
-use serenity::model::application::interaction::application_command::{
-  ApplicationCommandInteraction, CommandDataOptionValue,
-};
-use serenity::model::prelude::command::CommandOptionType;
+use serenity::model::application::{CommandInteraction, CommandOptionType, ResolvedValue};
 use serenity::Error;
 use tracing::error;
 
 pub struct Eval;
 
+const EXPRESSION_OPTION_NAME: &str = "expression";
+
 #[async_trait]
 impl Command for Eval {
-  async fn execute(ctx: &Context, command: ApplicationCommandInteraction) -> Result<(), Error> {
-    let expr_option = match command.data.options.get(0) {
-      Some(o) => match o.resolved.as_ref() {
-        Some(opt_val) => opt_val.clone(),
-        None => {
-          error!("No options provided");
-          return text_response(ctx, command, "No expression in request").await;
+  async fn execute(ctx: &Context, command: &CommandInteraction) -> Result<(), Error> {
+    let expr = match command
+      .data
+      .options()
+      .iter()
+      .find(|e| e.name == EXPRESSION_OPTION_NAME)
+    {
+      Some(o) => {
+        if let ResolvedValue::String(expr) = o.value {
+          expr.to_string()
+        } else {
+          error!("Invalid option type");
+          return text_response(ctx, command, "Malformed expression provided").await;
         }
-      },
+      }
       None => {
         error!("No options provided");
         return text_response(ctx, command, "No expression in request").await;
       }
-    };
-
-    let expr = if let CommandDataOptionValue::String(expr) = expr_option {
-      expr
-    } else {
-      error!("Invalid option type");
-      return text_response(ctx, command, "Malformed expression provided").await;
     };
 
     let desc = match expr.trim() == "help" {
@@ -50,14 +48,15 @@ impl Command for Eval {
     };
 
     match command
-      .edit_original_interaction_response(&ctx.http, |response| {
-        response.embed(|embed| {
-          embed
+      .edit_response(
+        &ctx.http,
+        EditInteractionResponse::new().embed(
+          CreateEmbed::new()
             .title(remove_md_characters(expr))
             .colour(EMBED_COLOUR)
-            .description(desc)
-        })
-      })
+            .description(desc),
+        ),
+      )
       .await
     {
       Ok(_m) => Ok(()),
@@ -65,18 +64,20 @@ impl Command for Eval {
     }
   }
 
-  fn info(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
-    command
-      .name("eval")
+  fn name() -> &'static str {
+    "eval"
+  }
+
+  fn info() -> CreateCommand {
+    CreateCommand::new(Self::name())
       .description("Evaluate an expression")
-      .create_option(|option| {
-        option
-          .name("expression")
-          .description(
-            "Expression to evaluate (use \"help\" to get a cheatsheet of available functions)",
-          )
-          .kind(CommandOptionType::String)
-          .required(true)
-      })
+      .add_option(
+        CreateCommandOption::new(
+          CommandOptionType::String,
+          EXPRESSION_OPTION_NAME,
+          "Expression to evaluate (use \"help\" to get a cheatsheet of available functions)",
+        )
+        .required(true),
+      )
   }
 }
