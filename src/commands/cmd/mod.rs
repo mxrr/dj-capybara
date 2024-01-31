@@ -30,3 +30,9 @@ pub use info::Info;
 
 mod eval;
 pub use eval::Eval;
+
+mod pause;
+pub use pause::Pause;
+
+mod resume;
+pub use resume::Resume;
