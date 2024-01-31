@@ -110,7 +110,10 @@ pub async fn handle_commands(ctx: &Context, command: CommandInteraction) {
           "{user} failed running command {cmd}",
           user = user.tag(),
           cmd = name
-        )
+        );
+        text_response(ctx, &command, "Error processing command")
+          .await
+          .unwrap_or(());
       } else {
         info!("{user} ran command {cmd}", user = user.tag(), cmd = name)
       }

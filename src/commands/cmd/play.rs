@@ -103,6 +103,16 @@ impl Command for Play {
       let mut data = handle.typemap().write().await;
       data.insert::<SongMetadataKey>(metadata.clone());
     }
+    match handle.add_event(
+      Event::Track(TrackEvent::Error),
+      SongError {
+        ctx: ctx.clone(),
+        command: command.clone(),
+      },
+    ) {
+      Ok(_) => (),
+      Err(e) => error!("Error adding SongError event: {}", e),
+    }
     let embed_title = match handler.queue().len() == 1 {
       true => "Playing",
       false => "Added to queue",
@@ -265,6 +275,24 @@ impl EventHandler for SongStart {
       Err(e) => {
         error!("{}", e);
         return None;
+      }
+    }
+  }
+}
+
+struct SongError {
+  pub command: CommandInteraction,
+  pub ctx: Context,
+}
+
+#[async_trait]
+impl EventHandler for SongError {
+  async fn act(&self, _ctx: &EventContext<'_>) -> Option<Event> {
+    match text_response(&self.ctx, &self.command, "Error playing song").await {
+      Ok(_) => None,
+      Err(e) => {
+        error!("Failed editing error response: {}", e);
+        None
       }
     }
   }
