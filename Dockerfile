@@ -1,4 +1,4 @@
-FROM rust:buster as rust_builder
+FROM rust:bookworm as rust_builder
 
 WORKDIR /usr/src
 
@@ -19,14 +19,13 @@ RUN rm src/*.rs
 COPY ./src ./src
 RUN cargo build --release
 
-FROM debian:buster-slim as runner
+FROM debian:bookworm-slim as runner
 
 WORKDIR /usr/src/capybara
 
 RUN apt-get update
 RUN apt-get install -y ca-certificates
 RUN apt-get install libopus0
-RUN apt-get install -y --no-install-recommends ffmpeg
 RUN apt-get install -y --no-install-recommends curl
 RUN apt-get install -y --no-install-recommends python3
 
