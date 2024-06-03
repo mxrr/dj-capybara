@@ -47,7 +47,19 @@ pub async fn register_commands(ctx: &Context, _ready: &Ready) {
       Err(e) => panic!("Couldn't set application commands: {:#?}", e),
     }
   } else {
-    unimplemented!("Global commands")
+    let commands = ctx.http.create_global_commands(&command_list()).await;
+
+    match commands {
+      Ok(c) => {
+        let cmd_list = c.iter().fold("".to_string(), |mut a, c| {
+          let s = format!("{}\n", c.name);
+          a.push_str(&s);
+          a
+        });
+        info!("Added global commands:\n{}", cmd_list)
+      }
+      Err(e) => panic!("Couldn't set global application commands: {:#?}", e),
+    }
   }
 }
 
