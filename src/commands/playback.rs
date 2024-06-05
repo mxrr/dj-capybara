@@ -131,7 +131,7 @@ pub fn get_source(client: crate::constants::HttpClient, param: String) -> Youtub
   }
 }
 
-pub async fn get_queue_length_and_duration(queue: &Vec<TrackHandle>) -> (usize, Duration) {
+pub async fn get_queue_length_and_duration(queue: &[TrackHandle]) -> (usize, Duration) {
   (queue.len(), get_queue_duration(queue).await)
 }
 
