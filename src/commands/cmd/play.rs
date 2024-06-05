@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::commands::{
   playback::{
     format_duration, format_duration_live, get_queue_length_and_duration, get_source, SongMetadata,
@@ -24,6 +22,7 @@ use serenity::{
   Error,
 };
 use songbird::{events::Event, Call, EventContext, EventHandler, Songbird, TrackEvent};
+use std::sync::Arc;
 use tracing::error;
 
 pub struct Play;

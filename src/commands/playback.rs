@@ -1,5 +1,6 @@
 use crate::constants::placeholder_img;
 use regex::Regex;
+use serenity::async_trait;
 use serenity::client::Context;
 use serenity::model::application::CommandInteraction;
 use serenity::model::id::ChannelId;
@@ -9,9 +10,10 @@ use songbird::{
   input::{Compose, YoutubeDl},
   tracks::TrackHandle,
   typemap::TypeMapKey,
+  Event, EventContext, EventHandler,
 };
 use std::{sync::Arc, time::Duration};
-use tracing::error;
+use tracing::{error, info};
 
 pub struct VOIPData {
   pub channel_id: ChannelId,
@@ -210,4 +212,21 @@ pub fn format_duration(d: Duration) -> String {
       "n/a".to_string()
     },
   )
+}
+
+pub struct ClientDisconnectEvent {
+  pub ctx: Context,
+}
+
+#[async_trait]
+impl EventHandler for ClientDisconnectEvent {
+  async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
+    let channel_data = match ctx {
+      EventContext::ClientDisconnect(data) => data,
+      _ => return None,
+    };
+
+    info!("User disconnected");
+    None
+  }
 }

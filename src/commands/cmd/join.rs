@@ -1,9 +1,13 @@
-use crate::commands::{playback::VOIPData, text_response, Command};
+use crate::commands::{
+  playback::{ClientDisconnectEvent, VOIPData},
+  text_response, Command,
+};
 use serenity::async_trait;
 use serenity::builder::CreateCommand;
 use serenity::client::Context;
 use serenity::model::application::CommandInteraction;
 use serenity::Error;
+use songbird::{CoreEvent, Event};
 use tracing::error;
 
 pub struct Join;
@@ -28,7 +32,19 @@ impl Command for Join {
       }
     };
 
-    let _handler = manager.join(guild_id, channel_id).await;
+    let handler = match manager.join(guild_id, channel_id).await {
+      Ok(c) => c,
+      Err(e) => {
+        error!("Error joining channel: {}", e);
+        return text_response(ctx, command, "Couldn't join channel").await;
+      }
+    };
+
+    let mut handler_lock = handler.lock().await;
+    handler_lock.add_global_event(
+      Event::Core(CoreEvent::ClientDisconnect),
+      ClientDisconnectEvent { ctx: ctx.clone() },
+    );
 
     match channel_id.name(&ctx.http).await {
       Ok(channel_name) => {
