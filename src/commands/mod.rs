@@ -78,6 +78,7 @@ fn command_list() -> Vec<CreateCommand> {
     cmd::Eval::info(),
     cmd::Pause::info(),
     cmd::Resume::info(),
+    cmd::Status::info(),
   ]
 }
 
@@ -111,6 +112,7 @@ pub async fn handle_commands(ctx: &Context, command: CommandInteraction) {
     _ if name == cmd::Eval::name() => cmd::Eval::execute(ctx, &command),
     _ if name == cmd::Pause::name() => cmd::Pause::execute(ctx, &command),
     _ if name == cmd::Resume::name() => cmd::Resume::execute(ctx, &command),
+    _ if name == cmd::Status::name() => cmd::Status::execute(ctx, &command),
     _ => Box::pin(text_response(ctx, &command, "Invalid command")),
   };
 

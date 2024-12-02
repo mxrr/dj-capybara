@@ -1,4 +1,5 @@
 FROM rust:bookworm as rust_builder
+ARG GIT_COMMIT="unknown"
 
 WORKDIR /usr/src
 
@@ -11,6 +12,9 @@ RUN apt-get install -y --no-install-recommends cmake
 
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
+COPY ./build.rs ./build.rs
+
+ENV GIT_COMMIT=$GIT_COMMIT
 
 RUN cargo build --release
 RUN rm ./target/release/deps/capybara*

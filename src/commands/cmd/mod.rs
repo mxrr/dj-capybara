@@ -16,6 +16,9 @@ pub use queue::Queue;
 mod seek;
 pub use seek::Seek;
 
+mod status;
+pub use status::Status;
+
 mod stop;
 pub use stop::Stop;
 
