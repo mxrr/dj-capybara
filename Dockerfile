@@ -1,4 +1,4 @@
-FROM rust:bookworm as rust_builder
+FROM rust:bookworm AS rust_builder
 ARG GIT_COMMIT="unknown"
 
 WORKDIR /usr/src
@@ -23,7 +23,7 @@ RUN rm src/*.rs
 COPY ./src ./src
 RUN cargo build --release
 
-FROM debian:bookworm-slim as runner
+FROM debian:bookworm-slim AS runner
 
 WORKDIR /usr/src/capybara
 
@@ -38,4 +38,4 @@ RUN chmod a+rx /usr/local/bin/yt-dlp
 
 COPY --from=rust_builder /usr/src/capybara/target/release/capybara ./capybara
 
-CMD ./capybara
+CMD ["./capybara"]
